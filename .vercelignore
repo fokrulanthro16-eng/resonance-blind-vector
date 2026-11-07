@@ -1,0 +1,8 @@
+Dockerfile
+docker-compose.yml
+nginx.conf
+node_modules
+raw_video
+neural_parts
+test_video
+*.webm

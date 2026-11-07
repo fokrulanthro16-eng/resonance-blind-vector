@@ -18,3 +18,5 @@ Thumbs.db
 
 # Antigravity agent logs
 .system_generated/
+
+.vercel

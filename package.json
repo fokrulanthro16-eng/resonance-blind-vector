@@ -1,14 +1,21 @@
 {
   "name": "resonance-blind-vector",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "RESONANCE: Blind Vector (Acoustic Echolocation Engine) — Flagship competition entry for Wolfjam 2026",
+  "main": "index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "npx serve .",
+    "build": "echo 'Static build ready'"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "wolfjam-2026",
+    "web-audio-dsp",
+    "acoustic-echolocation",
+    "binaural-audio",
+    "blind-accessibility"
+  ],
+  "author": "FOKRUL ISLAM (intelliyash)",
+  "license": "MIT",
   "dependencies": {
     "playwright-core": "^1.65.0"
   }

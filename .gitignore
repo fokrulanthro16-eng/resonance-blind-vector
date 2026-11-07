@@ -1,0 +1,20 @@
+# Node dependencies
+node_modules/
+package-lock.json
+
+# Temporary raw recording & render buffers
+raw_video/
+test_video/
+neural_parts/
+part_*.wav
+game_audio.webm
+
+# OS metadata & editors
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Antigravity agent logs
+.system_generated/

@@ -1,0 +1,3436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>RESONANCE: Blind Vector (Acoustic Echolocation Engine)</title>
+  <style>
+    /* ==========================================================================
+       RESONANCE: BLIND VECTOR — PRODUCTION CSS SPECIFICATION
+       Aesthetic: DARPA Tactile Telemetry / 0 Lux Sensory Inversion / Cyberpunk CRT
+       ========================================================================== */
+    :root {
+      --bg-void: #010306;
+      --cyan-phosphor: #00f3ff;
+      --cyan-glow: rgba(0, 243, 255, 0.4);
+      --cyan-dim: rgba(0, 243, 255, 0.15);
+      --crimson-hazard: #ff0055;
+      --crimson-glow: rgba(255, 0, 85, 0.5);
+      --amber-alert: #ffaa00;
+      --emerald-sync: #00ff88;
+      --violet-anchor: #bd00ff;
+      --hud-text: #a0ecff;
+      --hud-dim: #274957;
+      --hud-bg: rgba(2, 6, 12, 0.88);
+      --hud-border: rgba(0, 243, 255, 0.35);
+      --font-mono: 'Courier New', 'Consolas', 'Lucida Console', Monaco, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      font-family: var(--font-mono);
+      color: var(--hud-text);
+      cursor: crosshair;
+    }
+
+    /* Primary Simulation Canvas */
+    #simCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+      background-color: var(--bg-void);
+    }
+
+    /* Screen Space CRT Phosphor Simulation & Vignette */
+    .crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      background: radial-gradient(circle at center, transparent 35%, rgba(0, 2, 5, 0.88) 100%),
+                  repeating-linear-gradient(0deg, rgba(0, 243, 255, 0.015) 0px, rgba(0, 243, 255, 0.015) 1px, transparent 1px, transparent 3px);
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.95);
+    }
+
+    /* Tactical HUD Layer */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hud-panel {
+      pointer-events: auto;
+      background: var(--hud-bg);
+      border: 1px solid var(--hud-border);
+      border-radius: 2px;
+      padding: 12px 16px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.8), inset 0 0 14px rgba(0, 243, 255, 0.07);
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      line-height: 1.45;
+      text-transform: uppercase;
+      position: relative;
+    }
+
+    .hud-panel::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 7px;
+      height: 7px;
+      border-top: 2px solid var(--cyan-phosphor);
+      border-left: 2px solid var(--cyan-phosphor);
+    }
+    .hud-panel::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+      width: 7px;
+      height: 7px;
+      border-bottom: 2px solid var(--cyan-phosphor);
+      border-right: 2px solid var(--cyan-phosphor);
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .hud-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+    }
+
+    /* Banner & Typography */
+    .title-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .title-banner h1 {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 12px var(--cyan-phosphor);
+      letter-spacing: 1.6px;
+    }
+    .title-banner .subtext {
+      color: var(--cyan-phosphor);
+      font-size: 9px;
+      letter-spacing: 1.1px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 14px;
+      row-gap: 4px;
+      margin-top: 8px;
+    }
+    .telemetry-label {
+      color: var(--hud-dim);
+    }
+    .telemetry-val {
+      color: #fff;
+      font-weight: bold;
+    }
+    .telemetry-val.alert {
+      color: var(--crimson-hazard);
+      text-shadow: 0 0 8px var(--crimson-hazard);
+      animation: pulseAlert 0.75s infinite alternate;
+    }
+    .telemetry-val.sync {
+      color: var(--emerald-sync);
+      text-shadow: 0 0 8px var(--emerald-sync);
+    }
+
+    @keyframes pulseAlert {
+      from { opacity: 0.55; }
+      to { opacity: 1; }
+    }
+
+    /* Oscilloscope and VU Meter Monitor */
+    .scope-box {
+      width: 230px;
+      height: 75px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      margin-top: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    #scopeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .scope-tag {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 8px;
+      color: var(--cyan-phosphor);
+      letter-spacing: 0.6px;
+    }
+
+    /* Decibel VU Meter Bar */
+    .vu-meter-wrap {
+      width: 100%;
+      margin-top: 6px;
+    }
+    .vu-meter-bar {
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+    .vu-meter-fill {
+      height: 100%;
+      width: 25%;
+      background: linear-gradient(90deg, #00ff88 0%, #ffaa00 65%, #ff0055 90%);
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+      transition: width 0.08s ease-out;
+    }
+
+    /* Biometrics / Heartbeat Telemetry */
+    .biometrics-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 6px;
+    }
+    .bpm-display {
+      font-size: 21px;
+      font-weight: 900;
+      color: #fff;
+      min-width: 80px;
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    }
+    .bpm-display.elevated {
+      color: var(--crimson-hazard);
+      text-shadow: 0 0 14px var(--crimson-hazard);
+    }
+    #ecgCanvas {
+      width: 140px;
+      height: 38px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(0, 243, 255, 0.2);
+    }
+
+    /* Center Lissajous Phase Locking Tuning HUD */
+    .center-tuning-hud {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      background: rgba(1, 4, 10, 0.85);
+      border: 1px solid var(--cyan-phosphor);
+      padding: 14px 20px;
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.35);
+      backdrop-filter: blur(8px);
+    }
+    .center-tuning-hud.active {
+      opacity: 1;
+    }
+    .tuning-title {
+      font-size: 12px;
+      color: var(--cyan-phosphor);
+      text-shadow: 0 0 10px var(--cyan-phosphor);
+      font-weight: bold;
+      letter-spacing: 1.5px;
+    }
+    #lissajousCanvas {
+      width: 76px;
+      height: 76px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      border-radius: 50%;
+    }
+    .tuning-bar-outer {
+      width: 260px;
+      height: 10px;
+      background: rgba(0, 0, 0, 0.85);
+      border: 1px solid var(--cyan-phosphor);
+      padding: 1px;
+      position: relative;
+    }
+    .tuning-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00f3ff, #00ff88);
+      box-shadow: 0 0 14px #00ff88;
+      transition: width 0.05s linear;
+    }
+    .tuning-hint {
+      font-size: 10px;
+      color: #fff;
+      letter-spacing: 0.8px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 2px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Extraction Anchors List */
+    .anchors-panel {
+      min-width: 275px;
+    }
+    .anchor-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px dashed rgba(0, 243, 255, 0.15);
+    }
+    .anchor-item:last-child {
+      border-bottom: none;
+    }
+    .anchor-name {
+      font-weight: bold;
+    }
+    .anchor-freq {
+      color: var(--hud-dim);
+      font-size: 10px;
+    }
+    .anchor-state {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+    .state-locked {
+      background: rgba(255, 0, 85, 0.12);
+      color: var(--crimson-hazard);
+      border: 1px solid rgba(255, 0, 85, 0.3);
+    }
+    .state-synced {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--emerald-sync);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+    }
+    .state-range {
+      background: rgba(0, 243, 255, 0.2);
+      color: #fff;
+      border: 1px solid var(--cyan-phosphor);
+      animation: pulseAlert 0.5s infinite alternate;
+    }
+
+    /* Tactical Array & Decoy Gauges */
+    .gauge-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      margin-top: 5px;
+    }
+    .ping-gauge {
+      margin-top: 3px;
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      position: relative;
+    }
+    .ping-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--cyan-phosphor);
+      box-shadow: 0 0 10px var(--cyan-phosphor);
+      transition: width 0.05s linear;
+    }
+    .decoy-fill {
+      background: var(--amber-alert);
+      box-shadow: 0 0 10px var(--amber-alert);
+    }
+
+    /* Microphone Echolocation HUD Elements */
+    .mic-control-box {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(0, 243, 255, 0.2);
+    }
+    .btn-mic {
+      width: 100%;
+      padding: 6px 10px;
+      font-size: 10px;
+      border: 1px solid var(--cyan-phosphor);
+      background: rgba(0, 243, 255, 0.08);
+      color: var(--cyan-phosphor);
+      font-family: var(--font-mono);
+      font-weight: bold;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s ease;
+    }
+    .btn-mic:hover {
+      background: var(--cyan-phosphor);
+      color: #000;
+      box-shadow: 0 0 14px var(--cyan-phosphor);
+    }
+    .btn-mic.active {
+      background: rgba(0, 255, 136, 0.2);
+      border-color: var(--emerald-sync);
+      color: var(--emerald-sync);
+      box-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+    }
+    .mic-meter-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      margin-top: 4px;
+      display: none;
+      overflow: hidden;
+    }
+    .mic-meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00ff88, #ffaa00, #ff0055);
+      transition: width 0.04s ease-out;
+    }
+
+    /* Modal Dialogs / Landing Overlays */
+    .modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      background: rgba(1, 3, 6, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .modal-backdrop.hidden {
+      display: none;
+    }
+
+    .tactical-modal {
+      width: 740px;
+      max-width: 92vw;
+      background: rgba(2, 7, 15, 0.96);
+      border: 1px solid var(--cyan-phosphor);
+      box-shadow: 0 0 60px rgba(0, 243, 255, 0.28), inset 0 0 35px rgba(0, 243, 255, 0.05);
+      padding: 28px 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+    .tactical-modal::before {
+      content: 'CLASSIFIED // WOLFJAW QA TELEMETRY AUDIT';
+      position: absolute;
+      top: -10px;
+      left: 20px;
+      background: var(--bg-void);
+      padding: 0 8px;
+      font-size: 9px;
+      color: var(--cyan-phosphor);
+      letter-spacing: 1.5px;
+    }
+
+    .modal-title {
+      font-size: 23px;
+      color: #fff;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 0 0 16px var(--cyan-phosphor);
+    }
+    .modal-subtitle {
+      font-size: 11px;
+      color: var(--cyan-phosphor);
+      letter-spacing: 1.1px;
+      margin-top: -12px;
+    }
+    .modal-body {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #b5d5e2;
+      border-top: 1px solid rgba(0, 243, 255, 0.2);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+      padding: 14px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Headphone Calibration Controls */
+    .calib-section {
+      background: rgba(0, 243, 255, 0.04);
+      border: 1px solid rgba(0, 243, 255, 0.18);
+      padding: 12px;
+      border-radius: 2px;
+    }
+    .calib-title {
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+    .calib-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    button.btn-tactical {
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid var(--cyan-phosphor);
+      color: #fff;
+      padding: 10px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.15s ease-in-out;
+      outline: none;
+    }
+    button.btn-tactical:hover {
+      background: var(--cyan-phosphor);
+      color: #000;
+      box-shadow: 0 0 16px var(--cyan-phosphor);
+    }
+    button.btn-tactical:active {
+      transform: scale(0.98);
+    }
+
+    button.btn-primary-launch {
+      background: linear-gradient(90deg, rgba(0, 243, 255, 0.2), rgba(0, 255, 136, 0.2));
+      border: 1px solid var(--emerald-sync);
+      color: #fff;
+      padding: 15px 22px;
+      font-size: 13px;
+      letter-spacing: 2px;
+    }
+    button.btn-primary-launch:hover {
+      background: var(--emerald-sync);
+      color: #000;
+      box-shadow: 0 0 25px var(--emerald-sync);
+    }
+
+    /* Keyboard controls cheat sheet */
+    .key-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      font-size: 11px;
+    }
+    .key-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      background: rgba(0, 243, 255, 0.15);
+      border: 1px solid var(--cyan-phosphor);
+      color: #fff;
+      margin-right: 6px;
+      font-weight: bold;
+    }
+
+    /* Accessibility Voice Announce Banner */
+    #voiceAnnounce {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid var(--cyan-phosphor);
+      padding: 5px 16px;
+      font-size: 10px;
+      color: var(--cyan-phosphor);
+      letter-spacing: 1px;
+      pointer-events: none;
+      z-index: 20;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+    }
+    #voiceAnnounce.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Space Simulation Canvas -->
+  <canvas id="simCanvas"></canvas>
+
+  <!-- CRT Scanlines & Vignette -->
+  <div class="crt-overlay"></div>
+
+  <!-- Accessibility Banner -->
+  <div id="voiceAnnounce">SYSTEM AUDIO TELEMETRY: READY</div>
+
+  <!-- In-Game Tactical HUD Layer -->
+  <div class="hud-layer">
+    <!-- Header Section -->
+    <div class="hud-header">
+      <!-- Top Left: Military Telemetry Diagnostic -->
+      <div class="hud-panel" style="min-width: 295px;">
+        <div class="title-banner">
+          <h1>RESONANCE // BLIND VECTOR</h1>
+          <div class="subtext">ACOUSTIC ECHOLOCATION ENGINE [0 LUX]</div>
+        </div>
+        <div class="telemetry-grid">
+          <span class="telemetry-label">SECTOR:</span>
+          <span class="telemetry-val" id="hudSector">CENTRAL NEXUS (0 LUX)</span>
+          
+          <span class="telemetry-label">OCCLUSION FILTER:</span>
+          <span class="telemetry-val" id="hudOcclusion">CLEAR [6500 Hz]</span>
+          
+          <span class="telemetry-label">PREDATOR DOPPLER:</span>
+          <span class="telemetry-val" id="hudDoppler">0.0 Hz [STABLE]</span>
+          
+          <span class="telemetry-label">ACOUSTIC NOISE:</span>
+          <span class="telemetry-val" id="hudNoise">22.0 dB [QUIET]</span>
+
+          <span class="telemetry-label">STEALTH RATING:</span>
+          <span class="telemetry-val" id="hudStealth">100% [UNDETECTED]</span>
+        </div>
+
+        <!-- Real-Time Decibel VU Meter Bar -->
+        <div class="vu-meter-wrap">
+          <div class="vu-meter-bar">
+            <div class="vu-meter-fill" id="vuFill"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:8px; color:var(--hud-dim); margin-top:2px;">
+            <span>0 dB</span>
+            <span>PREDATOR HEARING THRESHOLD 60 dB</span>
+            <span>100 dB</span>
+          </div>
+        </div>
+
+        <!-- Active Sonar Array Gauge -->
+        <div class="gauge-label-row">
+          <span>ACTIVE SONAR (SPACE/L-CLICK)</span>
+          <span id="pingStatusText" style="color:var(--cyan-phosphor);">CHARGED</span>
+        </div>
+        <div class="ping-gauge">
+          <div class="ping-fill" id="pingFill"></div>
+        </div>
+
+        <!-- Tactical Acoustic Decoy Gauge -->
+        <div class="gauge-label-row">
+          <span style="color:var(--amber-alert);">ACOUSTIC DECOY (R-CLICK/F)</span>
+          <span id="decoyStatusText" style="color:var(--amber-alert);">ARMED</span>
+        </div>
+        <div class="ping-gauge">
+          <div class="ping-fill decoy-fill" id="decoyFill"></div>
+        </div>
+
+        <!-- Real-World Microphone Echolocation Controls -->
+        <div class="mic-control-box">
+          <button class="btn-mic" id="btnToggleMic">[ ENABLE MIC ECHOLOCATION ]</button>
+          <div class="mic-meter-bar" id="micMeterBar">
+            <div class="mic-meter-fill" id="micMeterFill"></div>
+          </div>
+          <div id="micLabelRow" style="display:none; justify-content:space-between; font-size:8px; color:var(--emerald-sync); margin-top:2px;">
+            <span>VOICE / CLAP THRESHOLD</span>
+            <span id="micVolVal">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Right: Real-time Oscilloscope & Spectrum -->
+      <div class="hud-panel" style="display:flex; flex-direction:column; align-items:flex-end;">
+        <div style="display:flex; justify-content:space-between; width:100%; gap: 16px;">
+          <span style="color:var(--cyan-phosphor); font-weight:bold;">ACOUSTIC SPECTRUM</span>
+          <span style="color:var(--hud-dim);">FFT 1024 DSP</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scopeCanvas" width="230" height="75"></canvas>
+          <div class="scope-tag">CH-01: BINAURAL MASTER</div>
+        </div>
+        <div style="font-size:9px; color:var(--hud-dim); margin-top:4px; text-align:right;">
+          PHYSICAL REVERB & 3D OCCLUSION
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Interaction: Lissajous Phase Locking HUD -->
+    <div class="center-tuning-hud" id="tuningHud">
+      <div class="tuning-title" id="tuningAnchorTitle">SYNCHRONIZING ANCHOR ALPHA (432 Hz)</div>
+      <canvas id="lissajousCanvas" width="76" height="76"></canvas>
+      <div class="tuning-bar-outer">
+        <div class="tuning-bar-fill" id="tuningFill"></div>
+      </div>
+      <div class="tuning-hint">HOLD [E] / [SPACE] / [CLICK] TO PHASE LOCK</div>
+    </div>
+
+    <!-- Footer Section -->
+    <div class="hud-footer">
+      <!-- Bottom Left: Biometric Cardiac Engine -->
+      <div class="hud-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="color:var(--cyan-phosphor); font-weight:bold;">BIOMETRIC TELEMETRY</span>
+          <span style="color:var(--hud-dim); font-size:9px;">ECG HARMONIC</span>
+        </div>
+        <div class="biometrics-box">
+          <div class="bpm-display" id="bpmVal">60 <span style="font-size:11px; font-weight:normal; color:var(--hud-dim);">BPM</span></div>
+          <canvas id="ecgCanvas" width="140" height="38"></canvas>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:9px; margin-top:6px;">
+          <span class="telemetry-label">ACOUSTIC INTEGRITY:</span>
+          <span class="telemetry-val" id="hudIntegrity">100% [NOMINAL]</span>
+        </div>
+      </div>
+
+      <!-- Bottom Center: Tactical Compass / Controls Hint -->
+      <div class="hud-panel" style="text-align:center; padding: 8px 16px;">
+        <div style="color:var(--cyan-phosphor); font-weight:bold; font-size:10px;">VECTOR NAVIGATION SYSTEM</div>
+        <div style="font-size:9px; color:#fff; margin-top:3px;">
+          <span class="key-badge">WASD</span> MOVE &nbsp;|&nbsp; 
+          <span class="key-badge">SHIFT</span> SILENT CREEP &nbsp;|&nbsp; 
+          <span class="key-badge">SPACE / L-CLICK</span> SONAR PING &nbsp;|&nbsp; 
+          <span class="key-badge">R-CLICK / F</span> THROW DECOY &nbsp;|&nbsp;
+          <span class="key-badge">E</span> SYNC &nbsp;|&nbsp;
+          <span class="key-badge">C</span> COMPASS &nbsp;|&nbsp;
+          <span class="key-badge">H</span> HELP
+        </div>
+      </div>
+
+      <!-- Bottom Right: Extraction Objectives Matrix -->
+      <div class="hud-panel anchors-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="color:var(--cyan-phosphor); font-weight:bold;">EXTRACTION FREQUENCIES</span>
+          <span id="syncedCountText" style="color:var(--emerald-sync); font-weight:bold;">0 / 3</span>
+        </div>
+        <div class="anchor-item">
+          <div>
+            <div class="anchor-name" style="color:#00f3ff;">ANCHOR α</div>
+            <div class="anchor-freq">432 Hz Solfeggio</div>
+          </div>
+          <div class="anchor-state state-locked" id="anchorState0">UNRESOLVED</div>
+        </div>
+        <div class="anchor-item">
+          <div>
+            <div class="anchor-name" style="color:#ffaa00;">ANCHOR β</div>
+            <div class="anchor-freq">528 Hz Miraculum</div>
+          </div>
+          <div class="anchor-state state-locked" id="anchorState1">UNRESOLVED</div>
+        </div>
+        <div class="anchor-item">
+          <div>
+            <div class="anchor-name" style="color:#bd00ff;">ANCHOR γ</div>
+            <div class="anchor-freq">639 Hz Intercon</div>
+          </div>
+          <div class="anchor-state state-locked" id="anchorState2">UNRESOLVED</div>
+        </div>
+        <div style="margin-top:6px; font-size:9px; display:flex; justify-content:space-between;">
+          <span class="telemetry-label">EXTRACTION BEACON:</span>
+          <span class="telemetry-val alert" id="beaconState">LOCKED (0/3)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tactical Initialization Modal (Web Audio Autoplay Compliance & Spatial Calibration) -->
+  <div class="modal-backdrop" id="initModal">
+    <div class="tactical-modal">
+      <div class="modal-title">RESONANCE: BLIND VECTOR</div>
+      <div class="modal-subtitle">0 LUX ACOUSTIC ECHOLOCATION ENGINE • PRODUCTION SPECIFICATION</div>
+      
+      <div class="modal-body">
+        <p>
+          <strong>PHILOSOPHICAL PREMISE:</strong> Visible reality exists exclusively through acoustic perturbation. 
+          You are plunged into absolute darkness (0 Lux). Walls, obstacles, and predatory entities are completely invisible 
+          until energized by <em>acoustic wave propagation</em>.
+        </p>
+
+        <!-- Binaural Headphone Spatialization Calibration -->
+        <div class="calib-section">
+          <div class="calib-title">
+            <span>HEADPHONE 3D SPATIALIZATION CALIBRATION</span>
+            <span style="color:var(--cyan-phosphor);">RECOMMENDED: STEREO HEADPHONES</span>
+          </div>
+          <div class="calib-buttons">
+            <button class="btn-tactical" id="btnTestLeft">TEST LEFT EAR [432Hz]</button>
+            <button class="btn-tactical" id="btnTestCenter">TEST SUB-BASS [50Hz]</button>
+            <button class="btn-tactical" id="btnTestRight">TEST RIGHT EAR [432Hz]</button>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-weight:bold; color:#fff; margin-bottom:4px;">TACTICAL MISSION OBJECTIVE:</div>
+          <ol style="margin-left: 18px; display:flex; flex-direction:column; gap:4px;">
+            <li>Navigate the unlit labyrinth using active sonar chirps, footsteps, or real-world microphone claps.</li>
+            <li>Throw <strong>Acoustic Decoys</strong> (<span class="key-badge">R-CLICK</span> or <span class="key-badge">F</span>) to mislead hunting predators.</li>
+            <li>Locate all <strong>3 Resonant Extraction Anchors</strong> (432Hz, 528Hz, 639Hz) through directional 3D audio.</li>
+            <li>Hold <strong>[E]</strong> near anchors to achieve frequency phase-lock synchronization.</li>
+            <li>Evade the <strong>Apex Lurkers</strong> whose hunting screams undergo dynamic Doppler shifts as they charge.</li>
+            <li>Escape through the Central Acoustic Nexus once all frequencies are resolved.</li>
+          </ol>
+        </div>
+
+        <div class="key-grid">
+          <div><span class="key-badge">WASD</span> Vector Locomotion</div>
+          <div><span class="key-badge">SHIFT</span> Silent Creep (Reduced Acoustic Signature)</div>
+          <div><span class="key-badge">SPACE / L-CLICK</span> Active Sonar Ping (360 Ray Wavefront)</div>
+          <div><span class="key-badge">R-CLICK / F</span> Throw Tactical Acoustic Decoy</div>
+          <div><span class="key-badge">E</span> Frequency Phase Lock Synchronization</div>
+          <div><span class="key-badge">C</span> Audio Compass (Directional Binaural Ping)</div>
+          <div><span class="key-badge">H</span> Audio Telemetry Speech Synthesis Report</div>
+          <div><span class="key-badge">MIC BUTTON</span> Real-World Voice / Clap Echolocation</div>
+        </div>
+      </div>
+
+      <button class="btn-tactical btn-primary-launch" id="btnLaunch">
+        [ ENGAGE ACOUSTIC SENSORY LINK • INITIALIZE AUDIO CONTEXT ]
+      </button>
+    </div>
+  </div>
+
+  <!-- Game Over / Victory Modal -->
+  <div class="modal-backdrop hidden" id="endGameModal">
+    <div class="tactical-modal" style="text-align:center; align-items:center;">
+      <div class="modal-title" id="endGameTitle">SIGNAL LOST // ACOUSTIC VOID</div>
+      <div class="modal-subtitle" id="endGameSubtitle">PREDATORY ENTITY BREACHED SENSORY SHIELDING</div>
+      <div class="modal-body" id="endGameBody" style="width:100%; text-align:left;">
+        Tactical telemetry summary...
+      </div>
+      <button class="btn-tactical btn-primary-launch" id="btnRestart">
+        [ REBOOT ACOUSTIC SIMULATION (PRESS R) ]
+      </button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       RESONANCE: BLIND VECTOR — CORE JAVASCRIPT ENGINE
+       Subsystems: Vector Math, Audio DSP, Ray-Marching, Zero-GC Pools, AI Steering
+       ========================================================================== -->
+  <script>
+    'use strict';
+
+    /* ==========================================================================
+       1. GLOBAL CONSTANTS, HARDWARE TUNING & MEMORY ALLOCATION
+       ========================================================================== */
+    const SPEED_OF_SOUND = 480; // Scaled pixels per second (approx 343 m/s in engine scale)
+    const MAX_PHOSPHOR_PARTICLES = 5000;
+    const WORLD_SIZE = 2400; // 2400 x 2400 world units
+    const NUM_RAYS_PER_PING = 360; // 1 ray per degree around 2*PI
+    const PING_COOLDOWN_TIME = 1.25; // Seconds between sonar pings
+    const DECOY_COOLDOWN_TIME = 1.8; // Seconds between acoustic decoy throws
+    const MAX_DECOYS = 6;
+
+    /* ==========================================================================
+       2. ZERO-ALLOCATION PHOSPHOR PARTICLE MEMORY POOL (FLAT TYPED ARRAYS)
+       ========================================================================== */
+    const PhosphorPool = {
+      x: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      y: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      vx: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      vy: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      life: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      maxLife: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      size: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      r: new Uint8Array(MAX_PHOSPHOR_PARTICLES),
+      g: new Uint8Array(MAX_PHOSPHOR_PARTICLES),
+      b: new Uint8Array(MAX_PHOSPHOR_PARTICLES),
+      alpha: new Float32Array(MAX_PHOSPHOR_PARTICLES),
+      type: new Uint8Array(MAX_PHOSPHOR_PARTICLES), // 0: terrain cyan, 1: predator crimson, 2: anchor harmonic, 3: player pulse, 4: decoy amber
+      active: new Uint8Array(MAX_PHOSPHOR_PARTICLES),
+      nextIndex: 0,
+
+      spawn(x, y, vx, vy, life, size, r, g, b, alpha, type) {
+        let idx = -1;
+        for (let i = 0; i < MAX_PHOSPHOR_PARTICLES; i++) {
+          const testIdx = (this.nextIndex + i) % MAX_PHOSPHOR_PARTICLES;
+          if (this.active[testIdx] === 0) {
+            idx = testIdx;
+            break;
+          }
+        }
+        if (idx === -1) {
+          idx = this.nextIndex;
+        }
+        this.nextIndex = (idx + 1) % MAX_PHOSPHOR_PARTICLES;
+
+        this.x[idx] = x;
+        this.y[idx] = y;
+        this.vx[idx] = vx;
+        this.vy[idx] = vy;
+        this.life[idx] = life;
+        this.maxLife[idx] = life;
+        this.size[idx] = size;
+        this.r[idx] = r;
+        this.g[idx] = g;
+        this.b[idx] = b;
+        this.alpha[idx] = alpha;
+        this.type[idx] = type;
+        this.active[idx] = 1;
+        return idx;
+      },
+
+      update(dt) {
+        for (let i = 0; i < MAX_PHOSPHOR_PARTICLES; i++) {
+          if (this.active[i] === 0) continue;
+
+          this.life[i] -= dt;
+          if (this.life[i] <= 0) {
+            this.active[i] = 0;
+            continue;
+          }
+
+          this.x[i] += this.vx[i] * dt;
+          this.y[i] += this.vy[i] * dt;
+          this.vx[i] *= 0.94;
+          this.vy[i] *= 0.94;
+        }
+      },
+
+      draw(ctx, camX, camY) {
+        const cw = ctx.canvas.width;
+        const ch = ctx.canvas.height;
+
+        for (let i = 0; i < MAX_PHOSPHOR_PARTICLES; i++) {
+          if (this.active[i] === 0) continue;
+
+          const screenX = this.x[i] - camX;
+          const screenY = this.y[i] - camY;
+
+          if (screenX < -20 || screenX > cw + 20 || screenY < -20 || screenY > ch + 20) {
+            continue;
+          }
+
+          const normalizedLife = this.life[i] / this.maxLife[i];
+          const fade = Math.pow(normalizedLife, 1.45) * this.alpha[i];
+          if (fade <= 0.01) continue;
+
+          const s = this.size[i];
+          const r = this.r[i];
+          const g = this.g[i];
+          const b = this.b[i];
+
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${fade.toFixed(3)})`;
+          ctx.fillRect(screenX - s * 0.5, screenY - s * 0.5, s, s);
+
+          if (fade > 0.45 && s > 1.8) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${(fade * 0.4).toFixed(3)})`;
+            ctx.fillRect(screenX - 0.75, screenY - 0.75, 1.5, 1.5);
+          }
+        }
+      }
+    };
+
+    /* ==========================================================================
+       3. ACOUSTIC WAVEFRONT PROPAGATION ENGINE
+       ========================================================================== */
+    class AcousticWavefront {
+      constructor() {
+        this.active = false;
+        this.originX = 0;
+        this.originY = 0;
+        this.radius = 0;
+        this.maxRadius = 920;
+        this.speed = SPEED_OF_SOUND;
+        this.rayHits = [];
+        this.r = 0;
+        this.g = 243;
+        this.b = 255;
+        this.type = 0;
+      }
+
+      init(x, y, maxRadius, r, g, b, type, rayHits) {
+        this.active = true;
+        this.originX = x;
+        this.originY = y;
+        this.radius = 0;
+        this.maxRadius = maxRadius;
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.type = type;
+        this.rayHits = rayHits;
+      }
+
+      update(dt) {
+        if (!this.active) return;
+
+        const prevRadius = this.radius;
+        this.radius += this.speed * dt;
+
+        const hits = this.rayHits;
+        const len = hits.length;
+        for (let i = 0; i < len; i++) {
+          const hit = hits[i];
+          if (hit.dist >= prevRadius && hit.dist < this.radius && hit.dist <= this.maxRadius) {
+            const distRatio = Math.max(0, 1 - (hit.dist / this.maxRadius));
+            const energy = Math.pow(distRatio, 1.25);
+
+            if (hit.isPredator) {
+              const predVx = hit.predRef ? hit.predRef.vx : 0;
+              const predVy = hit.predRef ? hit.predRef.vy : 0;
+              for (let p = 0; p < 4; p++) {
+                const scatterAngle = Math.random() * Math.PI * 2;
+                const scatterSpeed = 25 + Math.random() * 85;
+                PhosphorPool.spawn(
+                  hit.x + (Math.random() - 0.5) * 8,
+                  hit.y + (Math.random() - 0.5) * 8,
+                  predVx * 0.4 + Math.cos(scatterAngle) * scatterSpeed,
+                  predVy * 0.4 + Math.sin(scatterAngle) * scatterSpeed,
+                  2.0 + Math.random() * 1.5,
+                  2.5 + Math.random() * 2.0,
+                  255, Math.floor(Math.random() * 60), 85,
+                  0.95,
+                  1
+                );
+              }
+            } else {
+              const count = Math.random() < 0.35 ? 2 : 1;
+              for (let p = 0; p < count; p++) {
+                const jx = (Math.random() - 0.5) * 3;
+                const jy = (Math.random() - 0.5) * 3;
+                const lifeSpan = (3.5 + Math.random() * 2.0) * energy;
+                PhosphorPool.spawn(
+                  hit.x + jx,
+                  hit.y + jy,
+                  hit.nx * (4 + Math.random() * 12),
+                  hit.ny * (4 + Math.random() * 12),
+                  lifeSpan,
+                  1.8 + Math.random() * 1.6,
+                  this.r, this.g, this.b,
+                  0.9 * energy,
+                  this.type
+                );
+              }
+            }
+          }
+        }
+
+        if (this.radius >= this.maxRadius) {
+          this.active = false;
+        }
+      }
+
+      draw(ctx, camX, camY) {
+        if (!this.active || this.radius < 5) return;
+
+        const sx = this.originX - camX;
+        const sy = this.originY - camY;
+        const alpha = Math.max(0, 1 - (this.radius / this.maxRadius)) * 0.22;
+
+        ctx.strokeStyle = `rgba(${this.r}, ${this.g}, ${this.b}, ${alpha.toFixed(3)})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    const MAX_WAVEFRONTS = 28;
+    const wavePool = Array.from({ length: MAX_WAVEFRONTS }, () => new AcousticWavefront());
+
+    function spawnAcousticWave(x, y, maxRadius, r, g, b, type, rayHits) {
+      for (let i = 0; i < MAX_WAVEFRONTS; i++) {
+        if (!wavePool[i].active) {
+          wavePool[i].init(x, y, maxRadius, r, g, b, type, rayHits);
+          return wavePool[i];
+        }
+      }
+      return null;
+    }
+
+    /* ==========================================================================
+       4. TACTICAL ACOUSTIC DECOY PROJECTILE POOL (ZERO ALLOCATION)
+       ========================================================================== */
+    class DecoyProjectile {
+      constructor() {
+        this.active = false;
+        this.x = 0;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.targetDist = 0;
+        this.traveled = 0;
+        this.sparkTimer = 0;
+      }
+
+      init(startX, startY, targetX, targetY) {
+        this.active = true;
+        this.x = startX;
+        this.y = startY;
+        const dx = targetX - startX;
+        const dy = targetY - startY;
+        const rawDist = Math.hypot(dx, dy);
+        this.targetDist = Math.min(620, Math.max(40, rawDist));
+        const speed = 520; // Scaled px/sec
+        this.vx = (dx / (rawDist || 1)) * speed;
+        this.vy = (dy / (rawDist || 1)) * speed;
+        this.traveled = 0;
+        this.sparkTimer = 0;
+      }
+
+      update(dt, labyrinth, audioEngine, predators) {
+        if (!this.active) return;
+
+        const stepDist = Math.hypot(this.vx * dt, this.vy * dt);
+        const nextX = this.x + this.vx * dt;
+        const nextY = this.y + this.vy * dt;
+        this.traveled += stepDist;
+
+        // Raycast from current to next position against walls
+        const dirLen = Math.hypot(this.vx, this.vy) || 1;
+        const ndx = this.vx / dirLen;
+        const ndy = this.vy / dirLen;
+        const hit = castRay(this.x, this.y, ndx, ndy, labyrinth.walls, stepDist + 2);
+
+        let detonated = false;
+        let impactX = nextX;
+        let impactY = nextY;
+
+        if (hit.dist <= stepDist + 2) {
+          detonated = true;
+          impactX = hit.x;
+          impactY = hit.y;
+        } else if (this.traveled >= this.targetDist) {
+          detonated = true;
+          impactX = nextX;
+          impactY = nextY;
+        }
+
+        // Faint flight spark trail
+        this.sparkTimer += dt;
+        if (this.sparkTimer >= 0.04) {
+          this.sparkTimer = 0;
+          PhosphorPool.spawn(
+            this.x, this.y,
+            (Math.random() - 0.5) * 10,
+            (Math.random() - 0.5) * 10,
+            0.6, 1.6,
+            255, 170, 0,
+            0.7, 4
+          );
+        }
+
+        if (detonated) {
+          this.detonate(impactX, impactY, labyrinth, audioEngine, predators);
+        } else {
+          this.x = nextX;
+          this.y = nextY;
+        }
+      }
+
+      detonate(x, y, labyrinth, audioEngine, predators) {
+        this.active = false;
+
+        // 1. Audio: Spatialized pebble impact clatter
+        audioEngine.playDecoyImpact(x, y, player.x, player.y);
+
+        // 2. Visual: 120-ray Amber Acoustic Wavefront
+        const numRays = 120;
+        const maxDist = 480;
+        const hits = [];
+        const step = (Math.PI * 2) / numRays;
+        for (let i = 0; i < numRays; i++) {
+          const ang = i * step;
+          const h = castRay(x, y, Math.cos(ang), Math.sin(ang), labyrinth.walls, maxDist);
+          hits.push(h);
+        }
+        spawnAcousticWave(x, y, maxDist, 255, 170, 0, 4, hits);
+
+        // 3. Phosphor Sparks burst at impact epicenter
+        for (let i = 0; i < 14; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const s = 15 + Math.random() * 45;
+          PhosphorPool.spawn(
+            x + (Math.random() - 0.5) * 6,
+            y + (Math.random() - 0.5) * 6,
+            Math.cos(a) * s, Math.sin(a) * s,
+            1.8, 2.5,
+            255, 170, 0,
+            0.95, 4
+          );
+        }
+
+        // 4. AI Misdirection: Divert all nearby predators to investigate impact site
+        let divertedCount = 0;
+        for (let p = 0; p < predators.length; p++) {
+          const pred = predators[p];
+          const distToImpact = Math.hypot(pred.x - x, pred.y - y);
+          if (distToImpact < 960) {
+            pred.divertToDecoy(x, y);
+            divertedCount++;
+          }
+        }
+
+        announce(divertedCount > 0 
+          ? `TACTICAL DECOY DETONATED // ${divertedCount} PREDATORS DIVERTED!` 
+          : `TACTICAL DECOY DETONATED!`);
+      }
+
+      draw(ctx, camX, camY) {
+        if (!this.active) return;
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillRect(sx - 2, sy - 2, 4, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sx - 1, sy - 1, 2, 2);
+      }
+    }
+
+    const decoyPool = Array.from({ length: MAX_DECOYS }, () => new DecoyProjectile());
+
+    function launchDecoy(startX, startY, targetX, targetY, labyrinth, audioEngine, predators) {
+      for (let i = 0; i < MAX_DECOYS; i++) {
+        if (!decoyPool[i].active) {
+          decoyPool[i].init(startX, startY, targetX, targetY);
+          audioEngine.playDecoyThrow();
+          return decoyPool[i];
+        }
+      }
+      return null;
+    }
+
+    /* ==========================================================================
+       5. LABYRINTH ENVIRONMENT & FAST VECTOR GEOMETRY
+       ========================================================================== */
+    class Labyrinth {
+      constructor() {
+        this.walls = [];
+        this.generateMap();
+      }
+
+      addWall(x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.hypot(dx, dy);
+        if (len < 0.001) return;
+        const nx = -dy / len;
+        const ny = dx / len;
+        this.walls.push({ x1, y1, x2, y2, nx, ny, len });
+      }
+
+      addBox(cx, cy, w, h) {
+        const hw = w * 0.5;
+        const hh = h * 0.5;
+        this.addWall(cx - hw, cy - hh, cx + hw, cy - hh);
+        this.addWall(cx + hw, cy - hh, cx + hw, cy + hh);
+        this.addWall(cx + hw, cy + hh, cx - hw, cy + hh);
+        this.addWall(cx - hw, cy + hh, cx - hw, cy - hh);
+      }
+
+      generateMap() {
+        this.walls = [];
+        const S = WORLD_SIZE;
+
+        // Perimeter Boundaries
+        this.addWall(60, 60, S - 60, 60);
+        this.addWall(S - 60, 60, S - 60, S - 60);
+        this.addWall(S - 60, S - 60, 60, S - 60);
+        this.addWall(60, S - 60, 60, 60);
+
+        // Central Nexus Chamber (Extraction Beacon at 1200, 1200)
+        this.addBox(1080, 1080, 60, 60);
+        this.addBox(1320, 1080, 60, 60);
+        this.addBox(1080, 1320, 60, 60);
+        this.addBox(1320, 1320, 60, 60);
+
+        this.addWall(950, 950, 1120, 950);
+        this.addWall(1280, 950, 1450, 950);
+        this.addWall(1450, 950, 1450, 1120);
+        this.addWall(1450, 1280, 1450, 1450);
+        this.addWall(1450, 1450, 1280, 1450);
+        this.addWall(1120, 1450, 950, 1450);
+        this.addWall(950, 1450, 950, 1280);
+        this.addWall(950, 1120, 950, 950);
+
+        // SECTOR ALPHA (North-West: Corridors & Alcoves, Anchor Alpha at 380, 420)
+        this.addWall(200, 200, 750, 200);
+        this.addWall(200, 200, 200, 750);
+        this.addWall(200, 750, 480, 750);
+        this.addWall(600, 750, 850, 750);
+        this.addWall(500, 320, 500, 620);
+        this.addWall(320, 480, 420, 480);
+        this.addWall(320, 320, 420, 320);
+        this.addBox(650, 450, 70, 70);
+
+        // SECTOR BETA (North-East: Resonance Trench, Anchor Beta at 2020, 420)
+        this.addWall(1650, 200, 2200, 200);
+        this.addWall(2200, 200, 2200, 750);
+        this.addWall(1650, 750, 1950, 750);
+        this.addWall(2070, 750, 2200, 750);
+        for (let i = 0; i < 4; i++) {
+          const bx = 1750 + i * 110;
+          this.addWall(bx, 350, bx + 40, 520);
+        }
+        this.addBox(2000, 320, 50, 50);
+
+        // SECTOR GAMMA (South-East: Sub-Acoustic Crypt, Anchor Gamma at 2020, 1980)
+        this.addWall(1650, 1650, 2200, 1650);
+        this.addWall(2200, 1650, 2200, 2200);
+        this.addWall(1650, 2200, 2200, 2200);
+        this.addWall(1650, 1650, 1650, 1900);
+        this.addWall(1650, 2020, 1650, 2200);
+        this.addWall(1800, 1750, 1800, 2100);
+        this.addWall(1950, 1750, 1950, 2100);
+        this.addWall(1800, 1920, 1950, 1920);
+
+        // SECTOR DELTA (South-West: Predator Hunting Grounds)
+        this.addWall(200, 1650, 750, 1650);
+        this.addWall(200, 1650, 200, 2200);
+        this.addWall(200, 2200, 750, 2200);
+        this.addWall(750, 1800, 750, 2200);
+        this.addBox(400, 1850, 80, 80);
+        this.addBox(580, 1950, 80, 80);
+        this.addBox(450, 2050, 60, 60);
+
+        // Mid-Level Transit Arteries & Angled Acoustic Wave Deflectors
+        this.addWall(750, 450, 950, 450);
+        this.addWall(1450, 450, 1650, 450);
+        this.addWall(750, 1950, 950, 1950);
+        this.addWall(1450, 1950, 1650, 1950);
+
+        this.addWall(450, 950, 750, 1150);
+        this.addWall(450, 1450, 750, 1250);
+        this.addWall(1950, 950, 1650, 1150);
+        this.addWall(1950, 1450, 1650, 1250);
+
+        this.addBox(1200, 650, 50, 50);
+        this.addBox(1200, 1750, 50, 50);
+        this.addBox(650, 1200, 50, 50);
+        this.addBox(1750, 1200, 50, 50);
+      }
+    }
+
+    /* Fast Analytical Ray-Segment Intersection */
+    function castRay(ox, oy, dx, dy, walls, maxDist, entities = []) {
+      let nearestT = maxDist;
+      let hitX = ox + dx * maxDist;
+      let hitY = oy + dy * maxDist;
+      let hitNx = -dx;
+      let hitNy = -dy;
+      let isPredator = false;
+      let predRef = null;
+
+      const wallCount = walls.length;
+      for (let i = 0; i < wallCount; i++) {
+        const w = walls[i];
+        const wx = w.x2 - w.x1;
+        const wy = w.y2 - w.y1;
+        const denom = dx * wy - dy * wx;
+        if (Math.abs(denom) < 0.00001) continue;
+
+        const qpx = w.x1 - ox;
+        const qpy = w.y1 - oy;
+        const t = (qpx * wy - qpy * wx) / denom;
+        const u = (qpx * dy - qpy * dx) / denom;
+
+        if (t > 0.001 && t < nearestT && u >= 0 && u <= 1) {
+          nearestT = t;
+          hitX = ox + dx * t;
+          hitY = oy + dy * t;
+          hitNx = w.nx;
+          hitNy = w.ny;
+        }
+      }
+
+      for (let e = 0; e < entities.length; e++) {
+        const ent = entities[e];
+        if (!ent || !ent.active) continue;
+
+        const ex = ent.x - ox;
+        const ey = ent.y - oy;
+        const proj = ex * dx + ey * dy;
+        if (proj <= 0) continue;
+
+        const perpSq = (ex * ex + ey * ey) - (proj * proj);
+        const rSq = ent.radius * ent.radius;
+        if (perpSq <= rSq) {
+          const dAlong = Math.sqrt(Math.max(0, rSq - perpSq));
+          const tCirc = proj - dAlong;
+          if (tCirc > 0.001 && tCirc < nearestT) {
+            nearestT = tCirc;
+            hitX = ox + dx * tCirc;
+            hitY = oy + dy * tCirc;
+            hitNx = (hitX - ent.x) / ent.radius;
+            hitNy = (hitY - ent.y) / ent.radius;
+            isPredator = true;
+            predRef = ent;
+          }
+        }
+      }
+
+      return {
+        dist: nearestT,
+        x: hitX,
+        y: hitY,
+        nx: hitNx,
+        ny: hitNy,
+        isPredator: isPredator,
+        predRef: predRef
+      };
+    }
+
+    function countWallOcclusions(x1, y1, x2, y2, walls) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.001) return 0;
+      const ndx = dx / len;
+      const ndy = dy / len;
+
+      let occlusions = 0;
+      for (let i = 0; i < walls.length; i++) {
+        const w = walls[i];
+        const wx = w.x2 - w.x1;
+        const wy = w.y2 - w.y1;
+        const denom = ndx * wy - ndy * wx;
+        if (Math.abs(denom) < 0.00001) continue;
+
+        const qpx = w.x1 - x1;
+        const qpy = w.y1 - y1;
+        const t = (qpx * wy - qpy * wx) / denom;
+        const u = (qpx * dy - qpy * dx) / denom;
+
+        if (t > 0.5 && t < len - 0.5 && u >= 0 && u <= 1) {
+          occlusions++;
+        }
+      }
+      return occlusions;
+    }
+
+    /* ==========================================================================
+       6. PROCEDURAL WEB AUDIO DSP ENGINE (BINAURAL, OCCLUSION & MIC PIPELINE)
+       ========================================================================== */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.sfxMasterGain = null;
+        this.sfxDuckingFilter = null;
+        this.sfxBaseVolume = 0.25;
+        this.sfxDuckedVolume = 0.08;
+        this.duckTimeout = null;
+        this.limiter = null;
+        this.analyser = null;
+        this.initialized = false;
+
+        this.heartbeatTimer = 0;
+        this.currentBpm = 60;
+        this.targetBpm = 60;
+        this.lastLubDub = 0;
+
+        this.tuneOsc = null;
+        this.tuneGain = null;
+        this.tuneActive = false;
+
+        this.proximityGain = null;
+        this.proximityOsc = null;
+        this.peakDb = 22.0;
+
+        // Real-World Microphone Echolocation Pipeline
+        this.micStream = null;
+        this.micSource = null;
+        this.micAnalyser = null;
+        this.micActive = false;
+        this.micData = new Float32Array(512);
+        this.micCooldown = 0;
+      }
+
+      init() {
+        if (this.initialized) return;
+        const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtxClass();
+
+        // 1. Master Brickwall Limiter (-1 dBFS Safeguard)
+        this.limiter = this.ctx.createDynamicsCompressor();
+        this.limiter.threshold.setValueAtTime(-1.0, this.ctx.currentTime);
+        this.limiter.knee.setValueAtTime(0.0, this.ctx.currentTime);
+        this.limiter.ratio.setValueAtTime(20.0, this.ctx.currentTime);
+        this.limiter.attack.setValueAtTime(0.001, this.ctx.currentTime);
+        this.limiter.release.setValueAtTime(0.05, this.ctx.currentTime);
+
+        // 2. Real-time Analyser for Vector Oscilloscope
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 1024;
+        this.analyser.smoothingTimeConstant = 0.85;
+
+        // 3. Master Gain Bus (0.9 to Limiter)
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.9, this.ctx.currentTime);
+
+        // 4. Master SFX Sub-Bus Separation (Default Base Volume = 0.25)
+        this.sfxMasterGain = this.ctx.createGain();
+        this.sfxMasterGain.gain.setValueAtTime(this.sfxBaseVolume, this.ctx.currentTime);
+
+        // Vocal Notch/Peaking Biquad Filter (1 kHz – 3 kHz vocal clarity ducking)
+        this.sfxDuckingFilter = this.ctx.createBiquadFilter();
+        this.sfxDuckingFilter.type = 'peaking';
+        this.sfxDuckingFilter.frequency.setValueAtTime(1800, this.ctx.currentTime);
+        this.sfxDuckingFilter.Q.setValueAtTime(0.8, this.ctx.currentTime);
+        this.sfxDuckingFilter.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        // Audio Sub-Bus Routing Topology:
+        // [All SFX Sources] -> sfxMasterGain (0.25) -> sfxDuckingFilter -> masterGain -> limiter -> analyser -> destination
+        this.sfxMasterGain.connect(this.sfxDuckingFilter);
+        this.sfxDuckingFilter.connect(this.masterGain);
+
+        this.masterGain.connect(this.limiter);
+        this.limiter.connect(this.analyser);
+        this.analyser.connect(this.ctx.destination);
+
+        // 5. Proximity Wall Ultrasound Hiss Node
+        this.proximityOsc = this.ctx.createOscillator();
+        this.proximityGain = this.ctx.createGain();
+        const proxFilter = this.ctx.createBiquadFilter();
+
+        this.proximityOsc.type = 'sine';
+        this.proximityOsc.frequency.setValueAtTime(1450, this.ctx.currentTime);
+        proxFilter.type = 'bandpass';
+        proxFilter.frequency.setValueAtTime(1450, this.ctx.currentTime);
+        proxFilter.Q.setValueAtTime(4.0, this.ctx.currentTime);
+
+        this.proximityGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+
+        this.proximityOsc.connect(proxFilter);
+        proxFilter.connect(this.proximityGain);
+        this.proximityGain.connect(this.sfxMasterGain);
+        this.proximityOsc.start();
+
+        this.initialized = true;
+      }
+
+      /* Dynamic Audio Ducking Pipeline (Sidechaining during Speech / Narration) */
+      duckAudio(safetyDurationSec = 3.5) {
+        if (!this.initialized || !this.sfxMasterGain) return;
+        const t = this.ctx.currentTime;
+        if (this.duckTimeout) {
+          clearTimeout(this.duckTimeout);
+          this.duckTimeout = null;
+        }
+
+        // Immediately ramp sfxMasterGain down to 0.08 over 0.1s
+        this.sfxMasterGain.gain.cancelScheduledValues(t);
+        this.sfxMasterGain.gain.setValueAtTime(this.sfxMasterGain.gain.value, t);
+        this.sfxMasterGain.gain.linearRampToValueAtTime(this.sfxDuckedVolume, t + 0.1);
+
+        // Apply subtle notch filter cut (-14 dB at 1.8 kHz) to prevent masking vocal frequencies
+        if (this.sfxDuckingFilter) {
+          this.sfxDuckingFilter.gain.cancelScheduledValues(t);
+          this.sfxDuckingFilter.gain.setValueAtTime(this.sfxDuckingFilter.gain.value, t);
+          this.sfxDuckingFilter.gain.linearRampToValueAtTime(-14.0, t + 0.1);
+        }
+
+        // Safety fallback timer if utterance onend fails to fire
+        this.duckTimeout = setTimeout(() => {
+          this.restoreAudio();
+        }, Math.max(1000, safetyDurationSec * 1000));
+      }
+
+      /* Restore SFX Bus to Default Base Volume (0.25) over 0.4s */
+      restoreAudio() {
+        if (!this.initialized || !this.sfxMasterGain) return;
+        if (this.duckTimeout) {
+          clearTimeout(this.duckTimeout);
+          this.duckTimeout = null;
+        }
+        const t = this.ctx.currentTime;
+
+        // Smoothly restore sfxMasterGain.gain back to 0.25 over 0.4s
+        this.sfxMasterGain.gain.cancelScheduledValues(t);
+        this.sfxMasterGain.gain.setValueAtTime(this.sfxMasterGain.gain.value, t);
+        this.sfxMasterGain.gain.linearRampToValueAtTime(this.sfxBaseVolume, t + 0.4);
+
+        // Smoothly restore ducking filter back to flat 0.0 dB
+        if (this.sfxDuckingFilter) {
+          this.sfxDuckingFilter.gain.cancelScheduledValues(t);
+          this.sfxDuckingFilter.gain.setValueAtTime(this.sfxDuckingFilter.gain.value, t);
+          this.sfxDuckingFilter.gain.linearRampToValueAtTime(0.0, t + 0.4);
+        }
+      }
+
+      resume() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      /* Real-World Microphone Toggle Pipeline */
+      async toggleMicrophone() {
+        if (!this.initialized) this.init();
+        this.resume();
+
+        const btn = document.getElementById('btnToggleMic');
+        const meterBar = document.getElementById('micMeterBar');
+        const labelRow = document.getElementById('micLabelRow');
+
+        if (this.micActive) {
+          // Deactivate
+          if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
+          }
+          this.micActive = false;
+          btn.innerText = "[ ENABLE MIC ECHOLOCATION ]";
+          btn.classList.remove('active');
+          meterBar.style.display = 'none';
+          labelRow.style.display = 'none';
+          announce("MICROPHONE ECHOLOCATION DISABLED.");
+        } else {
+          // Request mic access
+          try {
+            this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+
+            // Highpass filter at 120Hz to eliminate air conditioning rumble / breathing
+            const hpFilter = this.ctx.createBiquadFilter();
+            hpFilter.type = 'highpass';
+            hpFilter.frequency.setValueAtTime(120, this.ctx.currentTime);
+
+            this.micAnalyser = this.ctx.createAnalyser();
+            this.micAnalyser.fftSize = 512;
+            this.micAnalyser.smoothingTimeConstant = 0.25;
+
+            // Connect mic -> filter -> analyser (DO NOT connect to destination to avoid feedback!)
+            this.micSource.connect(hpFilter);
+            hpFilter.connect(this.micAnalyser);
+
+            this.micActive = true;
+            btn.innerText = "[ MIC ECHOLOCATION: ACTIVE ]";
+            btn.classList.add('active');
+            meterBar.style.display = 'block';
+            labelRow.style.display = 'flex';
+            announce("MIC ECHOLOCATION ACTIVE. CLAP OR SPEAK TO TRIGGER SONAR PULSE!");
+          } catch (err) {
+            console.error("Microphone access error:", err);
+            btn.innerText = "[ MIC ERROR // PERMISSION DENIED ]";
+            announce("MICROPHONE ACCESS DENIED BY BROWSER PERMISSION.");
+          }
+        }
+      }
+
+      /* Update Microphone Analysis & Detect Claps / Voices */
+      updateMicTrigger(dt, onClapCallback) {
+        if (!this.micActive || !this.micAnalyser) return;
+        if (this.micCooldown > 0) this.micCooldown -= dt;
+
+        this.micAnalyser.getFloatTimeDomainData(this.micData);
+        let sumSq = 0;
+        let peak = 0;
+        const len = this.micData.length;
+        for (let i = 0; i < len; i++) {
+          const val = Math.abs(this.micData[i]);
+          sumSq += val * val;
+          if (val > peak) peak = val;
+        }
+        const rms = Math.sqrt(sumSq / len);
+
+        // Update UI meter
+        const fill = document.getElementById('micMeterFill');
+        const text = document.getElementById('micVolVal');
+        const pct = Math.min(100, Math.round(peak * 200));
+        fill.style.width = `${pct}%`;
+        text.innerText = `${pct}%`;
+
+        // Clap or loud voice trigger threshold
+        if (this.micCooldown <= 0 && (peak > 0.22 || rms > 0.08)) {
+          this.micCooldown = 0.45; // Debounce
+          const energyMultiplier = Math.min(1.2, Math.max(0.5, peak * 1.6));
+          onClapCallback(energyMultiplier);
+        }
+      }
+
+      playCalibTone(panX, freq, label) {
+        if (!this.initialized) this.init();
+        this.resume();
+
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const panner = this.ctx.createStereoPanner();
+        const gain = this.ctx.createGain();
+
+        panner.pan.setValueAtTime(panX, t);
+        osc.type = freq < 100 ? 'sine' : 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.5, t + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+
+        osc.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.82);
+
+        announce(label);
+      }
+
+      /* Procedural Sonar Ping (Dual-Oscillator Chirp + Sub-Bass Resonance) */
+      triggerSonarPing(x, y, playerHeading, energy = 1.0) {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime;
+        this.peakDb = Math.min(100, 98.4 * energy);
+
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const subOsc = this.ctx.createOscillator();
+
+        const pingGain = this.ctx.createGain();
+        const subGain = this.ctx.createGain();
+        const pingFilter = this.ctx.createBiquadFilter();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+        subOsc.type = 'sine';
+
+        // Dual Oscillator Chirp: 440Hz -> 880Hz -> 220Hz
+        osc1.frequency.setValueAtTime(440, t);
+        osc1.frequency.exponentialRampToValueAtTime(880, t + 0.04);
+        osc1.frequency.exponentialRampToValueAtTime(220, t + 0.18);
+
+        osc2.frequency.setValueAtTime(444, t);
+        osc2.frequency.exponentialRampToValueAtTime(888, t + 0.04);
+        osc2.frequency.exponentialRampToValueAtTime(222, t + 0.18);
+
+        // Sub-bass resonance thump (54Hz -> 32Hz)
+        subOsc.frequency.setValueAtTime(54, t);
+        subOsc.frequency.exponentialRampToValueAtTime(32, t + 0.22);
+
+        const vol1 = 0.75 * energy;
+        const vol2 = 0.65 * energy;
+
+        pingGain.gain.setValueAtTime(0.001, t);
+        pingGain.gain.linearRampToValueAtTime(vol1, t + 0.003);
+        pingGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+
+        subGain.gain.setValueAtTime(0.001, t);
+        subGain.gain.linearRampToValueAtTime(vol2, t + 0.006);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+
+        pingFilter.type = 'bandpass';
+        pingFilter.frequency.setValueAtTime(650, t);
+        pingFilter.Q.setValueAtTime(1.8, t);
+
+        osc1.connect(pingFilter);
+        osc2.connect(pingFilter);
+        pingFilter.connect(pingGain);
+        pingGain.connect(this.sfxMasterGain);
+
+        subOsc.connect(subGain);
+        subGain.connect(this.sfxMasterGain);
+
+        osc1.start(t);
+        osc2.start(t);
+        subOsc.start(t);
+
+        osc1.stop(t + 0.3);
+        osc2.stop(t + 0.3);
+        subOsc.stop(t + 0.35);
+      }
+
+      /* Decoy Launch / Whoosh Sound */
+      playDecoyThrow() {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(280, t);
+        osc.frequency.exponentialRampToValueAtTime(560, t + 0.06);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(800, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.09);
+      }
+
+      /* Decoy Impact Audio Cue (Spatialized Pebble Wall Clatter) */
+      playDecoyImpact(impactX, impactY, playerX, playerY) {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime;
+        const dx = impactX - playerX;
+        const dy = impactY - playerY;
+        const dist = Math.hypot(dx, dy);
+
+        const osc = this.ctx.createOscillator();
+        const panner = this.ctx.createStereoPanner();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(920, t);
+        osc.frequency.exponentialRampToValueAtTime(240, t + 0.05);
+
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(950, t);
+        filter.Q.setValueAtTime(2.2, t);
+
+        const pan = Math.max(-1, Math.min(1, dx / Math.max(100, dist)));
+        panner.pan.setValueAtTime(pan, t);
+
+        const maxHearing = 1400;
+        const vol = Math.pow(Math.max(0, 1 - dist / maxHearing), 1.3) * 0.55;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(vol, t + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+
+        osc.connect(filter);
+        filter.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.08);
+      }
+
+      /* Directional Binaural Wall Reflection Click */
+      playWallEchoClick(delaySec, pan, intensity, cutoff) {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime + delaySec;
+
+        const osc = this.ctx.createOscillator();
+        const panner = this.ctx.createStereoPanner();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(520, t);
+        osc.frequency.exponentialRampToValueAtTime(260, t + 0.035);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(cutoff, t);
+
+        panner.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
+
+        const vol = Math.max(0.0001, Math.min(0.4, intensity * 0.35));
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(vol, t + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+
+        osc.connect(filter);
+        filter.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.045);
+      }
+
+      /* Footstep Micro-Acoustic Impulse */
+      triggerFootstep(isCreep) {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime;
+        this.peakDb = Math.max(this.peakDb, isCreep ? 32 : 58);
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sine';
+        const startFreq = isCreep ? 70 : 110;
+        osc.frequency.setValueAtTime(startFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(35, t + 0.05);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(isCreep ? 180 : 380, t);
+
+        const vol = isCreep ? 0.08 : 0.22;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(vol, t + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.07);
+      }
+
+      /* Interactive Heterodyne Phase-Lock Tuning Synth */
+      startTuning(targetFreq, detuneOffset) {
+        if (!this.initialized || this.tuneActive) return;
+
+        const t = this.ctx.currentTime;
+        this.tuneOsc = this.ctx.createOscillator();
+        this.tuneGain = this.ctx.createGain();
+
+        this.tuneOsc.type = 'triangle';
+        this.tuneOsc.frequency.setValueAtTime(targetFreq + detuneOffset, t);
+
+        this.tuneGain.gain.setValueAtTime(0.001, t);
+        this.tuneGain.gain.linearRampToValueAtTime(0.35, t + 0.08);
+
+        this.tuneOsc.connect(this.tuneGain);
+        this.tuneGain.connect(this.sfxMasterGain);
+
+        this.tuneOsc.start(t);
+        this.tuneActive = true;
+      }
+
+      updateTuning(currentFreq) {
+        if (!this.tuneActive || !this.tuneOsc) return;
+        this.tuneOsc.frequency.setTargetAtTime(currentFreq, this.ctx.currentTime, 0.02);
+      }
+
+      stopTuning(lockSuccess = false) {
+        if (!this.tuneActive || !this.tuneGain) return;
+        const t = this.ctx.currentTime;
+        if (lockSuccess) {
+          this.playLockChord();
+        }
+        this.tuneGain.gain.linearRampToValueAtTime(0.0001, t + 0.1);
+        if (this.tuneOsc) {
+          this.tuneOsc.stop(t + 0.12);
+        }
+        this.tuneActive = false;
+        this.tuneOsc = null;
+        this.tuneGain = null;
+      }
+
+      playLockChord() {
+        const t = this.ctx.currentTime;
+        const freqs = [432, 540, 648, 864];
+        freqs.forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, t);
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.25 / (idx + 1), t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+          osc.connect(g);
+          g.connect(this.sfxMasterGain);
+          osc.start(t);
+          osc.stop(t + 1.25);
+        });
+      }
+
+      playCompassCue(pan, angleRad) {
+        if (!this.initialized) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const panner = this.ctx.createStereoPanner();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, t);
+        osc.frequency.exponentialRampToValueAtTime(990, t + 0.08);
+
+        panner.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.4, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+        osc.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.25);
+      }
+
+      updateProximityUltrasound(closestDist) {
+        if (!this.initialized || !this.proximityGain) return;
+        const t = this.ctx.currentTime;
+        let vol = 0;
+        if (closestDist < 35) {
+          vol = Math.pow(1 - (closestDist / 35), 1.5) * 0.12;
+        }
+        this.proximityGain.gain.setTargetAtTime(vol, t, 0.05);
+      }
+
+      updateHeartbeat(dt, playerIntegrity, nearestPredatorDist, isHunting) {
+        if (!this.initialized) return;
+
+        let stress = 0;
+        if (nearestPredatorDist < 750) {
+          stress += Math.pow(1 - (nearestPredatorDist / 750), 1.2) * 0.65;
+        }
+        if (isHunting) stress += 0.45;
+        if (playerIntegrity < 100) stress += (1 - playerIntegrity / 100) * 0.4;
+        stress = Math.min(1.0, stress);
+
+        this.targetBpm = 60 + stress * 82;
+        this.currentBpm += (this.targetBpm - this.currentBpm) * (dt * 2.0);
+
+        const beatInterval = 60 / this.currentBpm;
+        this.heartbeatTimer += dt;
+
+        if (this.heartbeatTimer >= beatInterval) {
+          this.heartbeatTimer = 0;
+          this.triggerLubDub();
+        }
+
+        this.peakDb = Math.max(22.0, this.peakDb - dt * 26.0);
+      }
+
+      triggerLubDub() {
+        const t = this.ctx.currentTime;
+        this.playThump(t, 52, 36, 0.09, 0.65);
+        this.playThump(t + 0.145, 44, 30, 0.08, 0.45);
+        this.lastLubDub = performance.now();
+      }
+
+      playThump(startTime, startFreq, endFreq, dur, vol) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(startFreq, startTime);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, startTime + dur);
+
+        gain.gain.setValueAtTime(0.001, startTime);
+        gain.gain.linearRampToValueAtTime(vol, startTime + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + dur);
+
+        osc.connect(gain);
+        gain.connect(this.sfxMasterGain);
+
+        osc.start(startTime);
+        osc.stop(startTime + dur + 0.02);
+      }
+    }
+
+    /* ==========================================================================
+       7. SPATIALIZED SOUND SOURCE NODES (PREDATORS & ANCHORS)
+       ========================================================================== */
+    class SpatialEntityAudio {
+      constructor(audioEngine) {
+        this.ae = audioEngine;
+        this.panner = null;
+        this.filter = null;
+        this.gain = null;
+        this.osc = null;
+        this.lfo = null;
+        this.lfoGain = null;
+        this.active = false;
+      }
+
+      setup(baseFreq, oscType = 'sawtooth') {
+        if (!this.ae.initialized) return;
+        const ctx = this.ae.ctx;
+        const t = ctx.currentTime;
+
+        this.panner = ctx.createStereoPanner();
+        this.filter = ctx.createBiquadFilter();
+        this.filter.type = 'lowpass';
+        this.filter.frequency.setValueAtTime(450, t);
+
+        this.gain = ctx.createGain();
+        this.gain.gain.setValueAtTime(0.0001, t);
+
+        this.osc = ctx.createOscillator();
+        this.osc.type = oscType;
+        this.osc.frequency.setValueAtTime(baseFreq, t);
+
+        this.lfo = ctx.createOscillator();
+        this.lfo.frequency.setValueAtTime(7.0, t);
+        this.lfoGain = ctx.createGain();
+        this.lfoGain.gain.setValueAtTime(14.0, t);
+        this.lfo.connect(this.lfoGain);
+        this.lfoGain.connect(this.osc.frequency);
+
+        this.osc.connect(this.filter);
+        this.filter.connect(this.panner);
+        this.panner.connect(this.gain);
+        this.gain.connect(this.ae.sfxMasterGain);
+
+        this.osc.start(t);
+        this.lfo.start(t);
+        this.active = true;
+      }
+
+      updateSpatial(playerX, playerY, sourceX, sourceY, relVx, relVy, wallOcclusions, baseFreq, isHunting) {
+        if (!this.active || !this.ae.initialized) return;
+        const ctx = this.ae.ctx;
+        const t = ctx.currentTime;
+
+        const dx = sourceX - playerX;
+        const dy = sourceY - playerY;
+        const dist = Math.hypot(dx, dy);
+
+        const pan = Math.max(-1, Math.min(1, dx / Math.max(120, dist)));
+        this.panner.pan.setTargetAtTime(pan, t, 0.05);
+
+        const maxHearingDist = 1200;
+        let vol = 0;
+        if (dist < maxHearingDist) {
+          vol = Math.pow(1 - (dist / maxHearingDist), 1.6) * (isHunting ? 0.55 : 0.15);
+        }
+
+        let cutoff = 6500;
+        if (wallOcclusions > 0) {
+          cutoff = Math.max(160, 420 - (wallOcclusions - 1) * 90);
+          vol *= Math.max(0.18, 0.6 - wallOcclusions * 0.12);
+        }
+        this.filter.frequency.setTargetAtTime(cutoff, t, 0.04);
+        this.filter.Q.setTargetAtTime(wallOcclusions > 0 ? 3.0 : 1.0, t, 0.04);
+
+        let targetFreq = baseFreq;
+        if (dist > 1) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const vRel = relVx * nx + relVy * ny;
+          const dopplerRatio = Math.max(0.65, Math.min(1.75, SPEED_OF_SOUND / (SPEED_OF_SOUND + vRel)));
+          targetFreq = baseFreq * dopplerRatio;
+        }
+
+        this.osc.frequency.setTargetAtTime(targetFreq, t, 0.03);
+        this.gain.gain.setTargetAtTime(vol, t, 0.05);
+
+        return {
+          cutoff: cutoff,
+          dopplerDelta: targetFreq - baseFreq,
+          dist: dist
+        };
+      }
+    }
+
+    /* ==========================================================================
+       8. EXTRACTION RESONANCE ANCHORS (SOLFEGGIO HARMONIC CHIMES)
+       ========================================================================== */
+    class ExtractionAnchor {
+      constructor(id, name, x, y, freq, colorHex, r, g, b) {
+        this.id = id;
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.freq = freq;
+        this.colorHex = colorHex;
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.state = 0;
+        this.syncProgress = 0;
+        this.pulseTimer = Math.random() * 2.0;
+
+        this.panner = null;
+        this.gain = null;
+        this.osc = null;
+        this.activeAudio = false;
+      }
+
+      initAudio(audioEngine) {
+        if (!audioEngine.initialized || this.activeAudio) return;
+        const ctx = audioEngine.ctx;
+        const t = ctx.currentTime;
+
+        this.panner = ctx.createStereoPanner();
+        this.gain = ctx.createGain();
+        this.gain.gain.setValueAtTime(0.0001, t);
+
+        this.osc = ctx.createOscillator();
+        this.osc.type = 'sine';
+        this.osc.frequency.setValueAtTime(this.freq, t);
+
+        this.osc.connect(this.panner);
+        this.panner.connect(this.gain);
+        this.gain.connect(audioEngine.sfxMasterGain);
+
+        this.osc.start(t);
+        this.activeAudio = true;
+      }
+
+      update(dt, player, labyrinth, audioEngine) {
+        this.initAudio(audioEngine);
+
+        const dx = this.x - player.x;
+        const dy = this.y - player.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (this.activeAudio) {
+          const ctx = audioEngine.ctx;
+          const t = ctx.currentTime;
+          const pan = Math.max(-1, Math.min(1, dx / Math.max(100, dist)));
+          this.panner.pan.setTargetAtTime(pan, t, 0.08);
+
+          const maxDist = 1400;
+          let vol = 0;
+          if (dist < maxDist) {
+            vol = Math.pow(1 - (dist / maxDist), 1.8) * (this.state === 2 ? 0.35 : 0.2);
+          }
+          this.gain.gain.setTargetAtTime(vol, t, 0.08);
+        }
+
+        this.pulseTimer += dt;
+        const pulseInterval = this.state === 2 ? 2.2 : 3.4;
+        if (this.pulseTimer >= pulseInterval) {
+          this.pulseTimer = 0;
+          this.emitHarmonicPulse(labyrinth);
+        }
+      }
+
+      emitHarmonicPulse(labyrinth) {
+        const numRays = 72;
+        const hits = [];
+        const step = (Math.PI * 2) / numRays;
+        for (let i = 0; i < numRays; i++) {
+          const angle = i * step;
+          const dx = Math.cos(angle);
+          const dy = Math.sin(angle);
+          const hit = castRay(this.x, this.y, dx, dy, labyrinth.walls, 420);
+          hits.push(hit);
+        }
+        spawnAcousticWave(this.x, this.y, 420, this.r, this.g, this.b, 2, hits);
+      }
+
+      draw(ctx, camX, camY) {
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
+        const alpha = this.state === 2 ? 0.95 : 0.65;
+        ctx.strokeStyle = `rgba(${this.r}, ${this.g}, ${this.b}, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 14, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(${this.r}, ${this.g}, ${this.b}, 0.25)`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = this.colorHex;
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.freq}Hz`, sx, sy - 20);
+        ctx.fillText(this.name, sx, sy + 26);
+      }
+    }
+
+    /* ==========================================================================
+       9. PREDATOR AI & VECTOR STEERING STATE MACHINE
+       ========================================================================== */
+    class Predator {
+      constructor(id, name, x, y, baseFreq, patrolRadius) {
+        this.id = id;
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.spawnX = x;
+        this.spawnY = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = 24;
+        this.baseFreq = baseFreq;
+        this.patrolRadius = patrolRadius;
+
+        this.state = 0; // 0: PATROL, 1: INVESTIGATE, 2: APEX HUNT
+        this.heading = Math.random() * Math.PI * 2;
+        this.targetX = x;
+        this.targetY = y;
+        this.investigateTimer = 0;
+        this.clickTimer = Math.random() * 1.5;
+        this.active = true;
+
+        this.spatialAudio = null;
+        this.lastTelemetry = { cutoff: 450, dopplerDelta: 0, dist: 999 };
+      }
+
+      initAudio(audioEngine) {
+        if (!this.spatialAudio) {
+          this.spatialAudio = new SpatialEntityAudio(audioEngine);
+          this.spatialAudio.setup(this.baseFreq, 'sawtooth');
+        }
+      }
+
+      update(dt, player, labyrinth, audioEngine) {
+        this.initAudio(audioEngine);
+
+        const dxToPlayer = player.x - this.x;
+        const dyToPlayer = player.y - this.y;
+        const distToPlayer = Math.hypot(dxToPlayer, dyToPlayer);
+
+        const wallOcclusions = countWallOcclusions(this.x, this.y, player.x, player.y, labyrinth.walls);
+
+        // State Transitions
+        if (this.state === 2) {
+          if (distToPlayer > 850 && wallOcclusions > 1) {
+            this.state = 1;
+            this.investigateTimer = 5.0;
+            this.targetX = player.x;
+            this.targetY = player.y;
+          }
+        } else {
+          if (wallOcclusions === 0 && distToPlayer < 460) {
+            this.state = 2;
+            announce(`WARNING: APEX ENTITY ACQUIRED LINE-OF-SIGHT VECTOR!`);
+          }
+        }
+
+        let maxSpeed = 75;
+        let desiredVx = 0;
+        let desiredVy = 0;
+
+        if (this.state === 2) {
+          maxSpeed = 210;
+          const leadTime = Math.min(0.8, distToPlayer / maxSpeed);
+          const predTargetX = player.x + player.vx * leadTime;
+          const predTargetY = player.y + player.vy * leadTime;
+          const tdx = predTargetX - this.x;
+          const tdy = predTargetY - this.y;
+          const tlen = Math.hypot(tdx, tdy);
+          if (tlen > 1) {
+            desiredVx = (tdx / tlen) * maxSpeed;
+            desiredVy = (tdy / tlen) * maxSpeed;
+          }
+        } else if (this.state === 1) {
+          maxSpeed = 125;
+          this.investigateTimer -= dt;
+          const idx = this.targetX - this.x;
+          const idy = this.targetY - this.y;
+          const idist = Math.hypot(idx, idy);
+          if (idist > 15) {
+            desiredVx = (idx / idist) * maxSpeed;
+            desiredVy = (idy / idist) * maxSpeed;
+          } else {
+            if (this.investigateTimer <= 0) {
+              this.state = 0;
+            }
+          }
+        } else {
+          maxSpeed = 70;
+          const pdx = this.targetX - this.x;
+          const pdy = this.targetY - this.y;
+          const pdist = Math.hypot(pdx, pdy);
+          if (pdist < 40 || Math.random() < 0.01) {
+            const ang = Math.random() * Math.PI * 2;
+            const r = 100 + Math.random() * this.patrolRadius;
+            this.targetX = Math.max(150, Math.min(WORLD_SIZE - 150, this.spawnX + Math.cos(ang) * r));
+            this.targetY = Math.max(150, Math.min(WORLD_SIZE - 150, this.spawnY + Math.sin(ang) * r));
+          }
+          if (pdist > 1) {
+            desiredVx = (pdx / pdist) * maxSpeed;
+            desiredVy = (pdy / pdist) * maxSpeed;
+          }
+        }
+
+        // Whisker ray obstacle avoidance for corner navigation
+        const currentSpeed = Math.hypot(this.vx, this.vy);
+        if (currentSpeed > 10) {
+          const currentAng = Math.atan2(this.vy, this.vx);
+          const whiskerAng1 = currentAng + 0.7;
+          const whiskerAng2 = currentAng - 0.7;
+          const wHit1 = castRay(this.x, this.y, Math.cos(whiskerAng1), Math.sin(whiskerAng1), labyrinth.walls, 50);
+          const wHit2 = castRay(this.x, this.y, Math.cos(whiskerAng2), Math.sin(whiskerAng2), labyrinth.walls, 50);
+
+          if (wHit1.dist < 45) {
+            desiredVx -= Math.cos(whiskerAng1) * 60;
+            desiredVy -= Math.sin(whiskerAng1) * 60;
+          }
+          if (wHit2.dist < 45) {
+            desiredVx -= Math.cos(whiskerAng2) * 60;
+            desiredVy -= Math.sin(whiskerAng2) * 60;
+          }
+        }
+
+        const steerRate = this.state === 2 ? 8.5 : 4.5;
+        this.vx += (desiredVx - this.vx) * (steerRate * dt);
+        this.vy += (desiredVy - this.vy) * (steerRate * dt);
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        this.resolveWallCollisions(labyrinth.walls);
+        this.resolveWallCollisions(labyrinth.walls);
+
+        // Periodic Echolocation Click Wave
+        this.clickTimer -= dt;
+        const clickInterval = this.state === 2 ? 0.7 : 2.2;
+        if (this.clickTimer <= 0) {
+          this.clickTimer = clickInterval;
+          this.emitPredatorClick(labyrinth);
+        }
+
+        const relVx = this.vx - player.vx;
+        const relVy = this.vy - player.vy;
+        this.lastTelemetry = this.spatialAudio.updateSpatial(
+          player.x, player.y,
+          this.x, this.y,
+          relVx, relVy,
+          wallOcclusions,
+          this.baseFreq,
+          this.state === 2
+        ) || this.lastTelemetry;
+
+        if (distToPlayer < this.radius + player.radius) {
+          player.takeDamage(dt * 45);
+        }
+      }
+
+      emitPredatorClick(labyrinth) {
+        for (let s = 0; s < 16; s++) {
+          const sa = (s / 16) * Math.PI * 2;
+          const sx = this.x + Math.cos(sa) * this.radius;
+          const sy = this.y + Math.sin(sa) * this.radius;
+          PhosphorPool.spawn(
+            sx, sy,
+            this.vx * 0.4 + (Math.random() - 0.5) * 20,
+            this.vy * 0.4 + (Math.random() - 0.5) * 20,
+            1.2 + Math.random() * 0.8,
+            2.5,
+            255, 0, 85,
+            0.9,
+            1
+          );
+        }
+
+        const numRays = 72;
+        const hits = [];
+        const step = (Math.PI * 2) / numRays;
+        for (let i = 0; i < numRays; i++) {
+          const angle = i * step;
+          const dx = Math.cos(angle);
+          const dy = Math.sin(angle);
+          const hit = castRay(this.x, this.y, dx, dy, labyrinth.walls, 500);
+          hits.push(hit);
+        }
+        spawnAcousticWave(this.x, this.y, 500, 255, 0, 85, 1, hits);
+      }
+
+      alertToPulse(epicenterX, epicenterY) {
+        const dist = Math.hypot(epicenterX - this.x, epicenterY - this.y);
+        if (dist < 920 && this.state !== 2) {
+          this.state = 1;
+          this.targetX = epicenterX;
+          this.targetY = epicenterY;
+          this.investigateTimer = 6.0;
+        }
+      }
+
+      divertToDecoy(decoyX, decoyY) {
+        // High-priority acoustic diversion
+        this.state = 1; // Force INVESTIGATE toward decoy
+        this.targetX = decoyX;
+        this.targetY = decoyY;
+        this.investigateTimer = 7.5;
+      }
+
+      resolveWallCollisions(walls) {
+        for (let i = 0; i < walls.length; i++) {
+          const w = walls[i];
+          const wx = w.x2 - w.x1;
+          const wy = w.y2 - w.y1;
+          const lenSq = wx * wx + wy * wy;
+          if (lenSq < 0.0001) continue;
+
+          let t = ((this.x - w.x1) * wx + (this.y - w.y1) * wy) / lenSq;
+          t = Math.max(0, Math.min(1, t));
+
+          const cx = w.x1 + t * wx;
+          const cy = w.y1 + t * wy;
+          const cdx = this.x - cx;
+          const cdy = this.y - cy;
+          const cdist = Math.hypot(cdx, cdy);
+
+          if (cdist < this.radius) {
+            const overlap = this.radius - cdist;
+            if (cdist > 0.001) {
+              this.x += (cdx / cdist) * overlap;
+              this.y += (cdy / cdist) * overlap;
+            } else {
+              this.x += w.nx * overlap;
+              this.y += w.ny * overlap;
+            }
+          }
+        }
+      }
+    }
+
+    /* ==========================================================================
+       10. PLAYER CONTROLLER & SENSORY INVERSION ENGINE
+       ========================================================================== */
+    class Player {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = 16;
+        this.heading = 0;
+        this.integrity = 100;
+        this.pingCooldown = 0;
+        this.decoyCooldown = 0;
+        this.footstepTimer = 0;
+        this.isCreeping = false;
+        this.isDead = false;
+        this.closestWallDist = 999;
+      }
+
+      update(dt, input, labyrinth, audioEngine, predators) {
+        if (this.isDead) return;
+
+        let moveX = 0;
+        let moveY = 0;
+        if (input.keys['KeyW'] || input.keys['ArrowUp']) moveY -= 1;
+        if (input.keys['KeyS'] || input.keys['ArrowDown']) moveY += 1;
+        if (input.keys['KeyA'] || input.keys['ArrowLeft']) moveX -= 1;
+        if (input.keys['KeyD'] || input.keys['ArrowRight']) moveX += 1;
+
+        const moveLen = Math.hypot(moveX, moveY);
+        this.isCreeping = !!input.keys['ShiftLeft'] || !!input.keys['ShiftRight'];
+
+        const baseSpeed = this.isCreeping ? 80 : 160;
+        let targetVx = 0;
+        let targetVy = 0;
+        if (moveLen > 0.001) {
+          targetVx = (moveX / moveLen) * baseSpeed;
+          targetVy = (moveY / moveLen) * baseSpeed;
+          this.heading = Math.atan2(moveY, moveX);
+        }
+
+        this.vx += (targetVx - this.vx) * (10.0 * dt);
+        this.vy += (targetVy - this.vy) * (10.0 * dt);
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        this.resolveWallCollisions(labyrinth.walls);
+        this.resolveWallCollisions(labyrinth.walls);
+
+        // Tactile proximity ultrasound hiss
+        this.closestWallDist = 999;
+        for (let i = 0; i < labyrinth.walls.length; i++) {
+          const w = labyrinth.walls[i];
+          const wx = w.x2 - w.x1;
+          const wy = w.y2 - w.y1;
+          const lenSq = wx * wx + wy * wy;
+          if (lenSq < 0.0001) continue;
+          let t = Math.max(0, Math.min(1, ((this.x - w.x1) * wx + (this.y - w.y1) * wy) / lenSq));
+          const cx = w.x1 + t * wx;
+          const cy = w.y1 + t * wy;
+          const d = Math.hypot(this.x - cx, this.y - cy) - this.radius;
+          if (d < this.closestWallDist) this.closestWallDist = d;
+        }
+        audioEngine.updateProximityUltrasound(this.closestWallDist);
+
+        // Footstep Acoustic Emissions
+        const currentSpeed = Math.hypot(this.vx, this.vy);
+        if (currentSpeed > 15) {
+          const stepInterval = this.isCreeping ? 0.48 : 0.28;
+          this.footstepTimer += dt;
+          if (this.footstepTimer >= stepInterval) {
+            this.footstepTimer = 0;
+            audioEngine.triggerFootstep(this.isCreeping);
+
+            const footRadius = this.isCreeping ? 80 : 170;
+            const numRays = 40;
+            const hits = [];
+            const step = (Math.PI * 2) / numRays;
+            for (let i = 0; i < numRays; i++) {
+              const ang = i * step;
+              const h = castRay(this.x, this.y, Math.cos(ang), Math.sin(ang), labyrinth.walls, footRadius);
+              hits.push(h);
+            }
+            spawnAcousticWave(this.x, this.y, footRadius, 0, 243, 255, 3, hits);
+
+            if (!this.isCreeping && currentSpeed > 100) {
+              for (let p = 0; p < predators.length; p++) {
+                predators[p].alertToPulse(this.x, this.y);
+              }
+            }
+          }
+        } else {
+          this.footstepTimer = 0;
+        }
+
+        // Active Sonar Ping Trigger
+        if (this.pingCooldown > 0) {
+          this.pingCooldown -= dt;
+        }
+
+        if ((input.keys['Space'] || input.mouseLeft) && this.pingCooldown <= 0) {
+          this.triggerSonarPing(labyrinth, audioEngine, predators);
+        }
+
+        // Tactical Acoustic Decoy Trigger (Right Click or Key 'F')
+        if (this.decoyCooldown > 0) {
+          this.decoyCooldown -= dt;
+        }
+
+        if ((input.mouseRight || input.keys['KeyF']) && this.decoyCooldown <= 0) {
+          this.triggerDecoyThrow(labyrinth, audioEngine, predators, input);
+        }
+      }
+
+      triggerSonarPing(labyrinth, audioEngine, predators, energy = 1.0) {
+        this.pingCooldown = PING_COOLDOWN_TIME;
+        audioEngine.triggerSonarPing(this.x, this.y, this.heading, energy);
+
+        const numRays = NUM_RAYS_PER_PING;
+        const maxDist = 920 * energy;
+        const hits = [];
+        const step = (Math.PI * 2) / numRays;
+
+        let closestWallByQuadrant = [maxDist, maxDist, maxDist, maxDist];
+        let closestWallCutoffs = [6000, 6000, 6000, 6000];
+
+        for (let i = 0; i < numRays; i++) {
+          const ang = i * step;
+          const dx = Math.cos(ang);
+          const dy = Math.sin(ang);
+          const hit = castRay(this.x, this.y, dx, dy, labyrinth.walls, maxDist, predators);
+          hits.push(hit);
+
+          if (!hit.isPredator && hit.dist < maxDist) {
+            let quad = 0;
+            if (ang > Math.PI * 0.25 && ang <= Math.PI * 0.75) quad = 2;
+            else if (ang > Math.PI * 0.75 && ang <= Math.PI * 1.25) quad = 3;
+            else if (ang > Math.PI * 1.25 && ang <= Math.PI * 1.75) quad = 0;
+            else quad = 1;
+
+            if (hit.dist < closestWallByQuadrant[quad]) {
+              closestWallByQuadrant[quad] = hit.dist;
+              closestWallCutoffs[quad] = Math.max(300, 5000 - hit.dist * 4);
+            }
+          }
+        }
+
+        spawnAcousticWave(this.x, this.y, maxDist, 0, 243, 255, 0, hits);
+
+        const quads = [
+          { pan: 0.0, dist: closestWallByQuadrant[0], cutoff: closestWallCutoffs[0] },
+          { pan: 0.8, dist: closestWallByQuadrant[1], cutoff: closestWallCutoffs[1] },
+          { pan: 0.0, dist: closestWallByQuadrant[2], cutoff: closestWallCutoffs[2] },
+          { pan: -0.8, dist: closestWallByQuadrant[3], cutoff: closestWallCutoffs[3] }
+        ];
+
+        quads.forEach(q => {
+          if (q.dist < maxDist) {
+            const delaySec = (2 * q.dist) / SPEED_OF_SOUND;
+            const intensity = Math.max(0, 1 - (q.dist / maxDist));
+            audioEngine.playWallEchoClick(delaySec, q.pan, intensity, q.cutoff);
+          }
+        });
+
+        for (let p = 0; p < predators.length; p++) {
+          predators[p].alertToPulse(this.x, this.y);
+        }
+      }
+
+      triggerDecoyThrow(labyrinth, audioEngine, predators, input) {
+        this.decoyCooldown = DECOY_COOLDOWN_TIME;
+        input.mouseRight = false; // Consume click
+
+        // Calculate world coordinates of cursor
+        const camX = this.x - canvas.width * 0.5;
+        const camY = this.y - canvas.height * 0.5;
+        const worldTargetX = input.mouseX + camX;
+        const worldTargetY = input.mouseY + camY;
+
+        launchDecoy(this.x, this.y, worldTargetX, worldTargetY, labyrinth, audioEngine, predators);
+      }
+
+      takeDamage(amount) {
+        this.integrity = Math.max(0, this.integrity - amount);
+        if (this.integrity <= 0 && !this.isDead) {
+          this.isDead = true;
+          triggerGameOver(false);
+        }
+      }
+
+      resolveWallCollisions(walls) {
+        for (let i = 0; i < walls.length; i++) {
+          const w = walls[i];
+          const wx = w.x2 - w.x1;
+          const wy = w.y2 - w.y1;
+          const lenSq = wx * wx + wy * wy;
+          if (lenSq < 0.0001) continue;
+
+          let t = ((this.x - w.x1) * wx + (this.y - w.y1) * wy) / lenSq;
+          t = Math.max(0, Math.min(1, t));
+
+          const cx = w.x1 + t * wx;
+          const cy = w.y1 + t * wy;
+          const cdx = this.x - cx;
+          const cdy = this.y - cy;
+          const cdist = Math.hypot(cdx, cdy);
+
+          if (cdist < this.radius) {
+            const overlap = this.radius - cdist;
+            if (cdist > 0.001) {
+              this.x += (cdx / cdist) * overlap;
+              this.y += (cdy / cdist) * overlap;
+            } else {
+              this.x += w.nx * overlap;
+              this.y += w.ny * overlap;
+            }
+          }
+        }
+      }
+
+      draw(ctx, camX, camY) {
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const hx = sx + Math.cos(this.heading) * 14;
+        const hy = sy + Math.sin(this.heading) * 14;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(hx, hy);
+        ctx.stroke();
+      }
+    }
+
+    /* ==========================================================================
+       11. CENTRAL EXTRACTION NEXUS BEACON (VICTORY GATEWAY)
+       ========================================================================== */
+    class ExtractionBeacon {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 45;
+        this.unlocked = false;
+        this.pulseTimer = 0;
+      }
+
+      update(dt, labyrinth, anchors) {
+        const allSynced = anchors.every(a => a.state === 2);
+        if (allSynced && !this.unlocked) {
+          this.unlocked = true;
+          announce("ALL FREQUENCIES LOCKED. EXTRACTION BEACON ONLINE AT CENTRAL NEXUS!");
+        }
+
+        if (this.unlocked) {
+          this.pulseTimer += dt;
+          if (this.pulseTimer >= 2.0) {
+            this.pulseTimer = 0;
+            const numRays = 72;
+            const hits = [];
+            const step = (Math.PI * 2) / numRays;
+            for (let i = 0; i < numRays; i++) {
+              const ang = i * step;
+              const h = castRay(this.x, this.y, Math.cos(ang), Math.sin(ang), labyrinth.walls, 600);
+              hits.push(h);
+            }
+            spawnAcousticWave(this.x, this.y, 600, 0, 255, 136, 0, hits);
+          }
+        }
+      }
+
+      draw(ctx, camX, camY) {
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
+        ctx.strokeStyle = this.unlocked ? '#00ff88' : '#ff0055';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = this.unlocked ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 0, 85, 0.08)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, this.radius - 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.unlocked ? 'EXTRACTION NEXUS [ACTIVE]' : 'EXTRACTION NEXUS [LOCKED]', sx, sy - 52);
+      }
+    }
+
+    /* ==========================================================================
+       12. ENGINE MASTER ARCHITECTURE & MAIN LOOP
+       ========================================================================== */
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    const scopeCtx = scopeCanvas.getContext('2d');
+    const ecgCanvas = document.getElementById('ecgCanvas');
+    const ecgCtx = ecgCanvas.getContext('2d');
+    const lissajousCanvas = document.getElementById('lissajousCanvas');
+    const lissajousCtx = lissajousCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Input Manager
+    const Input = {
+      keys: {},
+      mouseLeft: false,
+      mouseRight: false,
+      mouseX: window.innerWidth * 0.5,
+      mouseY: window.innerHeight * 0.5
+    };
+
+    window.addEventListener('keydown', e => {
+      Input.keys[e.code] = true;
+      if (e.code === 'KeyC') {
+        triggerAudioCompass();
+      }
+      if (e.code === 'KeyH') {
+        triggerAudioTelemetryHelp();
+      }
+      if (e.code === 'KeyR') {
+        restartSimulation();
+      }
+    });
+    window.addEventListener('keyup', e => { Input.keys[e.code] = false; });
+    window.addEventListener('mousedown', e => {
+      if (e.button === 0) Input.mouseLeft = true;
+      if (e.button === 2) Input.mouseRight = true;
+    });
+    window.addEventListener('mouseup', e => {
+      if (e.button === 0) Input.mouseLeft = false;
+      if (e.button === 2) Input.mouseRight = false;
+    });
+    window.addEventListener('mousemove', e => {
+      Input.mouseX = e.clientX;
+      Input.mouseY = e.clientY;
+    });
+    window.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Game Entities
+    const labyrinth = new Labyrinth();
+    const audioEngine = new AudioEngine();
+    const player = new Player(1200, 1150);
+    const beacon = new ExtractionBeacon(1200, 1200);
+
+    const anchors = [
+      new ExtractionAnchor(0, 'ANCHOR ALPHA', 380, 420, 432, '#00f3ff', 0, 243, 255),
+      new ExtractionAnchor(1, 'ANCHOR BETA', 2020, 420, 528, '#ffaa00', 255, 170, 0),
+      new ExtractionAnchor(2, 'ANCHOR GAMMA', 2020, 1980, 639, '#bd00ff', 189, 0, 255)
+    ];
+
+    const predators = [
+      new Predator(0, 'THE LURKER', 450, 1950, 175, 550),
+      new Predator(1, 'ECHO PHANTASM', 1850, 1150, 235, 600)
+    ];
+
+    let gameRunning = false;
+    let victoryAchieved = false;
+    let lastTime = performance.now();
+    let currentTuningAnchor = null;
+    let lissajousPhase = 0;
+
+    let cachedBestVoice = null;
+    function getBestEnglishVoice() {
+      if (cachedBestVoice) return cachedBestVoice;
+      if (!('speechSynthesis' in window)) return null;
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) return null;
+
+      const priorityPatterns = [
+        /Microsoft.*Natural.*English/i,
+        /Microsoft.*Online.*English/i,
+        /Google.*US.*English/i,
+        /Google.*English/i,
+        /Microsoft.*David/i,
+        /Microsoft.*Mark/i,
+        /Microsoft.*Zira/i,
+        /en-US/i,
+        /en-GB/i,
+        /en/i
+      ];
+
+      for (const pattern of priorityPatterns) {
+        const found = voices.find(v => pattern.test(v.name) || pattern.test(v.lang));
+        if (found) {
+          cachedBestVoice = found;
+          return found;
+        }
+      }
+      return voices[0] || null;
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedBestVoice = null;
+        getBestEnglishVoice();
+      };
+    }
+
+    function announce(text) {
+      const banner = document.getElementById('voiceAnnounce');
+      if (banner) {
+        banner.innerText = text;
+        banner.classList.add('visible');
+        setTimeout(() => banner.classList.remove('visible'), 3200);
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+
+        const u = new SpeechSynthesisUtterance(text);
+        u.volume = 1.0;
+        u.rate = 0.95;
+        u.pitch = 1.0;
+
+        const bestVoice = getBestEnglishVoice();
+        if (bestVoice) {
+          u.voice = bestVoice;
+        }
+
+        // Dynamic Audio Ducking (Sidechaining during Speech)
+        if (audioEngine && audioEngine.initialized) {
+          const wordCount = text.split(/\s+/).length;
+          const estDuration = Math.max(1.8, (wordCount / 2.2) + 0.8);
+          audioEngine.duckAudio(estDuration);
+
+          u.onend = () => {
+            if (audioEngine) audioEngine.restoreAudio();
+          };
+          u.onerror = () => {
+            if (audioEngine) audioEngine.restoreAudio();
+          };
+        }
+
+        window.speechSynthesis.speak(u);
+      }
+    }
+
+    function triggerAudioCompass() {
+      if (!audioEngine.initialized) return;
+
+      let targetX = beacon.x;
+      let targetY = beacon.y;
+      let targetName = 'EXTRACTION NEXUS';
+
+      const unsynced = anchors.find(a => a.state !== 2);
+      if (unsynced) {
+        targetX = unsynced.x;
+        targetY = unsynced.y;
+        targetName = `${unsynced.name} (${unsynced.freq} HERTZ)`;
+      }
+
+      const dx = targetX - player.x;
+      const dy = targetY - player.y;
+      const pan = Math.max(-1, Math.min(1, dx / Math.max(100, Math.hypot(dx, dy))));
+
+      audioEngine.playCompassCue(pan, Math.atan2(dy, dx));
+      announce(`AUDIO COMPASS: ${targetName}`);
+    }
+
+    function triggerAudioTelemetryHelp() {
+      const syncedCount = anchors.filter(a => a.state === 2).length;
+      const report = `Telemetry audit: Health ${Math.round(player.integrity)} percent. Heart rate ${Math.round(audioEngine.currentBpm)} BPM. ${syncedCount} of 3 anchors synchronized. Press C for directional audio compass. Right click or F to throw decoy.`;
+      announce(report);
+    }
+
+    // Microphone Echolocation Button Handler
+    document.getElementById('btnToggleMic').addEventListener('click', () => {
+      audioEngine.toggleMicrophone();
+    });
+
+    // Headphone Calibration Button Handlers
+    document.getElementById('btnTestLeft').addEventListener('click', () => {
+      audioEngine.playCalibTone(-1.0, 432, "CALIBRATING LEFT STEREO CHANNEL");
+    });
+    document.getElementById('btnTestRight').addEventListener('click', () => {
+      audioEngine.playCalibTone(1.0, 432, "CALIBRATING RIGHT STEREO CHANNEL");
+    });
+    document.getElementById('btnTestCenter').addEventListener('click', () => {
+      audioEngine.playCalibTone(0.0, 50, "CALIBRATING SUB-BASS RESONANCE");
+    });
+
+    document.getElementById('btnLaunch').addEventListener('click', () => {
+      audioEngine.init();
+      audioEngine.resume();
+      document.getElementById('initModal').classList.add('hidden');
+      gameRunning = true;
+      announce("ACOUSTIC LINK ESTABLISHED. SENSORY PROTOCOL 0 LUX ACTIVE.");
+    });
+
+    document.getElementById('btnRestart').addEventListener('click', () => {
+      restartSimulation();
+    });
+
+    function restartSimulation() {
+      player.x = 1200;
+      player.y = 1150;
+      player.vx = 0;
+      player.vy = 0;
+      player.integrity = 100;
+      player.isDead = false;
+
+      anchors.forEach(a => {
+        a.state = 0;
+        a.syncProgress = 0;
+      });
+
+      predators[0].x = 450;
+      predators[0].y = 1950;
+      predators[0].state = 0;
+
+      predators[1].x = 1850;
+      predators[1].y = 1150;
+      predators[1].state = 0;
+
+      beacon.unlocked = false;
+      victoryAchieved = false;
+
+      document.getElementById('endGameModal').classList.add('hidden');
+      gameRunning = true;
+      announce("ACOUSTIC SIMULATION REBOOTED.");
+    }
+
+    function triggerGameOver(victory) {
+      gameRunning = false;
+      const modal = document.getElementById('endGameModal');
+      const title = document.getElementById('endGameTitle');
+      const subtitle = document.getElementById('endGameSubtitle');
+      const body = document.getElementById('endGameBody');
+
+      modal.classList.remove('hidden');
+
+      if (victory) {
+        title.innerText = "EXTRACTION SUCCESSFUL // PROTOCOL RESOLVED";
+        title.style.color = "#00ff88";
+        subtitle.innerText = "ALL ACOUSTIC FREQUENCIES SYNCHRONIZED";
+        body.innerHTML = `
+          <strong>TELEMETRY AUDIT:</strong><br>
+          • Anchor Alpha (432 Hz): SYNCHRONIZED<br>
+          • Anchor Beta (528 Hz): SYNCHRONIZED<br>
+          • Anchor Gamma (639 Hz): SYNCHRONIZED<br>
+          • Status: ESCAPED FROM 0 LUX LABYRINTH INTACT.
+        `;
+        announce("MISSION ACCOMPLISHED. EXTRACTION SEQUENCE COMPLETE.");
+      } else {
+        title.innerText = "SIGNAL LOST // ACOUSTIC VOID";
+        title.style.color = "#ff0055";
+        subtitle.innerText = "PREDATORY ENTITY BREACHED SENSORY SHIELDING";
+        body.innerHTML = `
+          <strong>INCIDENT REPORT:</strong><br>
+          • Acoustic integrity dropped to 0%.<br>
+          • Apex predator successfully ambushed the vector in total darkness.<br>
+          • Tactical Tip: Use Right-Click / F to throw acoustic decoys and draw predators away.
+        `;
+        announce("SIGNAL LOST. ACOUSTIC INTEGRITY DEPLETED.");
+      }
+    }
+
+    /* ==========================================================================
+       13. ANIMATION & RENDER ENGINE (ZERO-GC CANVAS PIPELINE)
+       ========================================================================== */
+    function engineLoop(timestamp) {
+      requestAnimationFrame(engineLoop);
+
+      const dt = Math.min(0.1, (timestamp - lastTime) / 1000);
+      lastTime = timestamp;
+
+      if (!gameRunning) {
+        renderCRTBlank();
+        drawOscilloscope();
+        drawECG();
+        return;
+      }
+
+      // 1. Update Player
+      player.update(dt, Input, labyrinth, audioEngine, predators);
+
+      // 2. Update Microphone Voice/Clap Echolocation Trigger
+      audioEngine.updateMicTrigger(dt, (energy) => {
+        player.triggerSonarPing(labyrinth, audioEngine, predators, energy);
+        announce("VOICE / CLAP ACOUSTIC WAVE DETECTED!");
+      });
+
+      // 3. Update Decoy Projectiles
+      for (let i = 0; i < MAX_DECOYS; i++) {
+        decoyPool[i].update(dt, labyrinth, audioEngine, predators);
+      }
+
+      // 4. Update Predators
+      let nearestPredDist = 9999;
+      let anyHunting = false;
+      for (let p = 0; p < predators.length; p++) {
+        const pred = predators[p];
+        pred.update(dt, player, labyrinth, audioEngine);
+        const d = Math.hypot(pred.x - player.x, pred.y - player.y);
+        if (d < nearestPredDist) nearestPredDist = d;
+        if (pred.state === 2) anyHunting = true;
+      }
+
+      // 5. Update Extraction Anchors & Phase Lock Interaction
+      let inRangeAnchor = null;
+      anchors.forEach((anchor) => {
+        anchor.update(dt, player, labyrinth, audioEngine);
+        const dist = Math.hypot(anchor.x - player.x, anchor.y - player.y);
+        if (dist < 120 && anchor.state !== 2) {
+          inRangeAnchor = anchor;
+        }
+      });
+
+      const tuningHud = document.getElementById('tuningHud');
+      const tuningFill = document.getElementById('tuningFill');
+      const tuningAnchorTitle = document.getElementById('tuningAnchorTitle');
+
+      if (inRangeAnchor) {
+        tuningHud.classList.add('active');
+        tuningAnchorTitle.innerText = `SYNCHRONIZING ${inRangeAnchor.name} (${inRangeAnchor.freq} Hz)`;
+
+        const isHoldingInteract = Input.keys['KeyE'] || Input.keys['Space'] || Input.mouseLeft;
+        if (isHoldingInteract) {
+          inRangeAnchor.state = 1;
+          inRangeAnchor.syncProgress += dt * 0.32;
+
+          const detune = (1 - inRangeAnchor.syncProgress) * 24.0;
+          if (!audioEngine.tuneActive) {
+            audioEngine.startTuning(inRangeAnchor.freq, detune);
+          } else {
+            audioEngine.updateTuning(inRangeAnchor.freq + detune);
+          }
+
+          if (inRangeAnchor.syncProgress >= 1.0) {
+            inRangeAnchor.syncProgress = 1.0;
+            inRangeAnchor.state = 2;
+            audioEngine.stopTuning(true);
+            announce(`${inRangeAnchor.name} FREQUENCY LOCKED!`);
+          }
+        } else {
+          inRangeAnchor.syncProgress = Math.max(0, inRangeAnchor.syncProgress - dt * 0.5);
+          if (audioEngine.tuneActive) {
+            audioEngine.stopTuning(false);
+          }
+        }
+        tuningFill.style.width = `${(inRangeAnchor.syncProgress * 100).toFixed(1)}%`;
+        drawLissajous((1 - inRangeAnchor.syncProgress) * 16.0);
+      } else {
+        tuningHud.classList.remove('active');
+        if (audioEngine.tuneActive) {
+          audioEngine.stopTuning(false);
+        }
+      }
+
+      // 6. Update Extraction Beacon & Win Condition
+      beacon.update(dt, labyrinth, anchors);
+      if (beacon.unlocked) {
+        const distToBeacon = Math.hypot(beacon.x - player.x, beacon.y - player.y);
+        if (distToBeacon < beacon.radius + player.radius && !victoryAchieved) {
+          victoryAchieved = true;
+          triggerGameOver(true);
+        }
+      }
+
+      // 7. Update Wavefronts & Zero-GC Particles
+      for (let i = 0; i < MAX_WAVEFRONTS; i++) {
+        wavePool[i].update(dt);
+      }
+      PhosphorPool.update(dt);
+
+      // 8. Update Dynamic Bio-Feedback Heartbeat
+      audioEngine.updateHeartbeat(dt, player.integrity, nearestPredDist, anyHunting);
+
+      // 9. Render Simulation Scene (0 Lux Canvas 2D)
+      renderScene();
+
+      // 10. Update Cyberpunk Diagnostic Telemetry HUD
+      updateHUDTelemetry(nearestPredDist, anyHunting);
+      drawOscilloscope();
+      drawECG();
+    }
+
+    function renderCRTBlank() {
+      ctx.fillStyle = '#010306';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function renderScene() {
+      ctx.fillStyle = '#010306';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const camX = player.x - canvas.width * 0.5;
+      const camY = player.y - canvas.height * 0.5;
+
+      ctx.globalCompositeOperation = 'lighter';
+
+      for (let i = 0; i < MAX_WAVEFRONTS; i++) {
+        wavePool[i].draw(ctx, camX, camY);
+      }
+
+      PhosphorPool.draw(ctx, camX, camY);
+
+      // Draw Decoy Projectiles
+      for (let i = 0; i < MAX_DECOYS; i++) {
+        decoyPool[i].draw(ctx, camX, camY);
+      }
+
+      anchors.forEach(a => a.draw(ctx, camX, camY));
+      beacon.draw(ctx, camX, camY);
+      player.draw(ctx, camX, camY);
+
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    /* ==========================================================================
+       14. TELEMETRY, OSCILLOSCOPE, LISSAJOUS & ECG VISUALIZERS
+       ========================================================================== */
+    function updateHUDTelemetry(nearestPredDist, anyHunting) {
+      const hudSector = document.getElementById('hudSector');
+      const px = player.x;
+      const py = player.y;
+      if (px >= 950 && px <= 1450 && py >= 950 && py <= 1450) {
+        hudSector.innerText = "CENTRAL NEXUS (0 LUX)";
+      } else if (px < 1000 && py < 1000) {
+        hudSector.innerText = "SECTOR ALPHA // SUB-LEVEL 01";
+      } else if (px > 1400 && py < 1000) {
+        hudSector.innerText = "SECTOR BETA // RESONANCE TRENCH";
+      } else if (px > 1400 && py > 1400) {
+        hudSector.innerText = "SECTOR GAMMA // SUB-ACOUSTIC CRYPT";
+      } else if (px < 1000 && py > 1400) {
+        hudSector.innerText = "SECTOR DELTA // HUNTING GROUNDS";
+      } else {
+        hudSector.innerText = "TRANSIT ARTERY // CORRIDOR";
+      }
+
+      const hudOccl = document.getElementById('hudOcclusion');
+      const pred = predators[0];
+      if (pred && pred.lastTelemetry) {
+        const c = Math.round(pred.lastTelemetry.cutoff);
+        if (c > 3500) {
+          hudOccl.innerText = `CLEAR [${c} Hz]`;
+          hudOccl.className = "telemetry-val alert";
+        } else {
+          hudOccl.innerText = `OCCLUDED [${c} Hz]`;
+          hudOccl.className = "telemetry-val";
+        }
+      }
+
+      const hudDoppler = document.getElementById('hudDoppler');
+      const dDelta = pred && pred.lastTelemetry ? pred.lastTelemetry.dopplerDelta : 0;
+      const sign = dDelta > 0 ? '+' : '';
+      hudDoppler.innerText = `${sign}${dDelta.toFixed(1)} Hz [${dDelta > 2 ? 'CHARGING' : dDelta < -2 ? 'RECEDING' : 'STABLE'}]`;
+      if (Math.abs(dDelta) > 4) hudDoppler.classList.add('alert');
+      else hudDoppler.classList.remove('alert');
+
+      const hudNoise = document.getElementById('hudNoise');
+      const vuFill = document.getElementById('vuFill');
+      const curDb = audioEngine.peakDb;
+      hudNoise.innerText = `${curDb.toFixed(1)} dB`;
+      vuFill.style.width = `${Math.min(100, Math.max(0, curDb))}%`;
+
+      const hudStealth = document.getElementById('hudStealth');
+      if (anyHunting) {
+        hudStealth.innerText = "0% [COMPROMISED]";
+        hudStealth.className = "telemetry-val alert";
+      } else if (player.isCreeping) {
+        hudStealth.innerText = "98% [SILENT CREEP]";
+        hudStealth.className = "telemetry-val sync";
+      } else {
+        hudStealth.innerText = "65% [STANDARD]";
+        hudStealth.className = "telemetry-val";
+      }
+
+      // Active Sonar Ping Cooldown Gauge
+      const pingFill = document.getElementById('pingFill');
+      const pingText = document.getElementById('pingStatusText');
+      if (player.pingCooldown <= 0) {
+        pingFill.style.width = '100%';
+        pingText.innerText = 'CHARGED [SPACE/L-CLICK]';
+        pingText.style.color = '#00f3ff';
+      } else {
+        const pct = Math.max(0, 1 - (player.pingCooldown / PING_COOLDOWN_TIME)) * 100;
+        pingFill.style.width = `${pct.toFixed(0)}%`;
+        pingText.innerText = 'RE-ARMING...';
+        pingText.style.color = '#8ee9ff';
+      }
+
+      // Tactical Decoy Cooldown Gauge
+      const decoyFill = document.getElementById('decoyFill');
+      const decoyText = document.getElementById('decoyStatusText');
+      if (player.decoyCooldown <= 0) {
+        decoyFill.style.width = '100%';
+        decoyText.innerText = 'ARMED [R-CLICK / F]';
+        decoyText.style.color = '#ffaa00';
+      } else {
+        const dpct = Math.max(0, 1 - (player.decoyCooldown / DECOY_COOLDOWN_TIME)) * 100;
+        decoyFill.style.width = `${dpct.toFixed(0)}%`;
+        decoyText.innerText = 'RELOADING DECOY...';
+        decoyText.style.color = '#cc8800';
+      }
+
+      // Biometrics
+      const bpmEl = document.getElementById('bpmVal');
+      const bpm = Math.round(audioEngine.currentBpm);
+      bpmEl.innerHTML = `${bpm} <span style="font-size:11px; font-weight:normal; color:var(--hud-dim);">BPM</span>`;
+      if (bpm > 105) bpmEl.classList.add('elevated');
+      else bpmEl.classList.remove('elevated');
+
+      document.getElementById('hudIntegrity').innerText = `${Math.round(player.integrity)}% [${player.integrity > 40 ? 'NOMINAL' : 'CRITICAL'}]`;
+
+      // Anchors Status List
+      let syncedCount = 0;
+      anchors.forEach((a, i) => {
+        const el = document.getElementById(`anchorState${i}`);
+        if (a.state === 2) {
+          el.innerText = 'SYNCHRONIZED';
+          el.className = 'anchor-state state-synced';
+          syncedCount++;
+        } else if (a.state === 1) {
+          el.innerText = `TUNING ${(a.syncProgress * 100).toFixed(0)}%`;
+          el.className = 'anchor-state state-range';
+        } else {
+          const d = Math.hypot(a.x - player.x, a.y - player.y);
+          if (d < 120) {
+            el.innerText = 'IN RANGE [HOLD E]';
+            el.className = 'anchor-state state-range';
+          } else {
+            el.innerText = 'UNRESOLVED';
+            el.className = 'anchor-state state-locked';
+          }
+        }
+      });
+      document.getElementById('syncedCountText').innerText = `${syncedCount} / 3`;
+
+      const bEl = document.getElementById('beaconState');
+      if (beacon.unlocked) {
+        bEl.innerText = "ONLINE [CENTRAL NEXUS]";
+        bEl.className = "telemetry-val sync";
+      } else {
+        bEl.innerText = `LOCKED (${syncedCount}/3)`;
+        bEl.className = "telemetry-val alert";
+      }
+    }
+
+    const timeDomainBuffer = new Uint8Array(1024);
+    function drawOscilloscope() {
+      scopeCtx.fillStyle = 'rgba(1, 4, 10, 0.45)';
+      scopeCtx.fillRect(0, 0, scopeCanvas.width, scopeCanvas.height);
+
+      scopeCtx.strokeStyle = 'rgba(0, 243, 255, 0.08)';
+      scopeCtx.lineWidth = 1;
+      scopeCtx.beginPath();
+      scopeCtx.moveTo(0, scopeCanvas.height * 0.5);
+      scopeCtx.lineTo(scopeCanvas.width, scopeCanvas.height * 0.5);
+      scopeCtx.moveTo(scopeCanvas.width * 0.5, 0);
+      scopeCtx.lineTo(scopeCanvas.width * 0.5, scopeCanvas.height);
+      scopeCtx.stroke();
+
+      if (!audioEngine.analyser) return;
+
+      audioEngine.analyser.getByteTimeDomainData(timeDomainBuffer);
+
+      scopeCtx.strokeStyle = '#00f3ff';
+      scopeCtx.lineWidth = 1.4;
+      scopeCtx.beginPath();
+
+      const sliceWidth = scopeCanvas.width / 1024;
+      let x = 0;
+      for (let i = 0; i < 1024; i += 4) {
+        const v = timeDomainBuffer[i] / 128.0;
+        const y = (v * scopeCanvas.height * 0.5);
+        if (i === 0) scopeCtx.moveTo(x, y);
+        else scopeCtx.lineTo(x, y);
+        x += sliceWidth * 4;
+      }
+      scopeCtx.stroke();
+    }
+
+    let ecgX = 0;
+    let ecgLastY = ecgCanvas.height * 0.5;
+    function drawECG() {
+      ecgCtx.fillStyle = 'rgba(1, 3, 7, 0.08)';
+      ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+
+      const timeSinceBeat = performance.now() - audioEngine.lastLubDub;
+      let targetY = ecgCanvas.height * 0.5;
+
+      if (timeSinceBeat < 80) targetY -= 3;
+      else if (timeSinceBeat >= 80 && timeSinceBeat < 130) targetY += 4;
+      else if (timeSinceBeat >= 130 && timeSinceBeat < 180) targetY -= 14;
+      else if (timeSinceBeat >= 180 && timeSinceBeat < 230) targetY += 7;
+      else if (timeSinceBeat >= 280 && timeSinceBeat < 380) targetY -= 4;
+
+      ecgCtx.strokeStyle = audioEngine.currentBpm > 105 ? '#ff0055' : '#00ff88';
+      ecgCtx.lineWidth = 1.2;
+      ecgCtx.beginPath();
+      ecgCtx.moveTo(ecgX, ecgLastY);
+
+      ecgX = (ecgX + 1.5) % ecgCanvas.width;
+      ecgCtx.lineTo(ecgX, targetY);
+      ecgCtx.stroke();
+
+      ecgLastY = targetY;
+    }
+
+    function drawLissajous(detuneRate) {
+      lissajousCtx.fillStyle = 'rgba(1, 4, 10, 0.35)';
+      lissajousCtx.fillRect(0, 0, lissajousCanvas.width, lissajousCanvas.height);
+
+      lissajousPhase += detuneRate * 0.04;
+      const cx = lissajousCanvas.width * 0.5;
+      const cy = lissajousCanvas.height * 0.5;
+      const r = 28;
+
+      lissajousCtx.strokeStyle = detuneRate < 1.0 ? '#00ff88' : '#00f3ff';
+      lissajousCtx.lineWidth = 1.5;
+      lissajousCtx.beginPath();
+
+      const steps = 72;
+      for (let i = 0; i <= steps; i++) {
+        const theta = (i / steps) * Math.PI * 2;
+        const lx = cx + Math.cos(theta) * r;
+        const ly = cy + Math.sin(theta + lissajousPhase) * r;
+        if (i === 0) lissajousCtx.moveTo(lx, ly);
+        else lissajousCtx.lineTo(lx, ly);
+      }
+      lissajousCtx.stroke();
+    }
+
+    requestAnimationFrame(engineLoop);
+  </script>
+</body>
+</html>
